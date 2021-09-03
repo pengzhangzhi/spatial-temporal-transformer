@@ -1,0 +1,7 @@
+experiment/
+data/TaxiBJ/TaxiBJ_offset*_c*_p*_t*_ext
+
+data/TaxiNYC/TaxiNYC_offset*_c*_p*_t*_ext
+
+data/TaxiNYC/TaxiNYC_offset0_c10_p0_t4_ext
+data/TaxiBJ/BJ16_M32x32_T30_InOut.h5

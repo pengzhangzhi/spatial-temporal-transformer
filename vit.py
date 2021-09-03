@@ -83,7 +83,7 @@ class Attention(nn.Module):
         self.scale = dim_head ** -0.5
         self.attend = nn.Softmax(dim=-1)
         self.to_qkv = nn.Linear(dim, inner_dim * 3, bias=False)
-        self.layer_norm = nn.LayerNorm([dim_head])
+
         self.to_out = nn.Sequential(
             nn.Linear(inner_dim, dim),
             nn.Dropout(dropout)
@@ -93,7 +93,7 @@ class Attention(nn.Module):
         b, n, _, h = *x.shape, self.heads
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h=h), qkv)
-        q, k = self.layer_norm(q), self.layer_norm(k)
+
         dots = einsum('b h i d, b h j d -> b h i j', q, k) * self.scale
 
         attn = self.attend(dots)
