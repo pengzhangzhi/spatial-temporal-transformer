@@ -12,6 +12,9 @@ ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDgrjjmmFh5AFzWKqw89cwYGgmCgiJGLcLKrYJ7qUPc
 3. use vscode ssh directly connect to EC2 Instance.
 
 format: 
+
 ssh username@ip_address
-e.g.:
+
+### e.g.:
+
 ssh ubuntu@18.162.48.208 
