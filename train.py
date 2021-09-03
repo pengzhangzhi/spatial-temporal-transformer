@@ -223,8 +223,8 @@ def train(args, model=None, experiment_path=None):
     save_test_results(test_results, experiment_path)
     result = str(y_rmse)
     rmse_format = "a".join(result.split("."))
-
-    with open(f"{rmse_format}.txt", "w") as f:
+    final_test_result = os.path.join(experiment_path,f"{rmse_format}.txt")
+    with open(final_test_result, "w") as f:
         f.write(f"{y_rmse}")
 
 
