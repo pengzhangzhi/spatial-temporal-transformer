@@ -198,8 +198,8 @@ class ViT(nn.Module):
         self.seq_pool = seq_pool
         if seq_pool:
             self.attention_pool = nn.Linear(dim, 1)
-            self.atten_layer_norm = nn.LayerNorm([dim])
-            self.attention_pool = nn.Sequential(self.atten_layer_norm,self.attention_pool)
+            # self.atten_layer_norm = nn.LayerNorm([self.num_patches, dim])
+            # self.attention_pool = nn.Sequential(self.atten_layer_norm,self.attention_pool)
             self.softmax_scale = dim
             self.softmax = Softmax(normlization_scale=self.softmax_scale)
 

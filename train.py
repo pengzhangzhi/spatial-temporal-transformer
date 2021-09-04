@@ -21,7 +21,7 @@ import torch
 import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 from einops import rearrange
-# from torch.utils.tensorboard import SummaryWriter
+from torch.utils.tensorboard import SummaryWriter
 
 from STTransformer import create_model
 from help_funcs import read_config_class, split_dataset, make_experiment_dir, save_train_history, save_test_results, \
@@ -223,8 +223,8 @@ def train(args, model=None, experiment_path=None):
     save_test_results(test_results, experiment_path)
     result = str(y_rmse)
     rmse_format = "a".join(result.split("."))
-    final_test_result = os.path.join(experiment_path,f"{rmse_format}.txt")
-    with open(final_test_result, "w") as f:
+
+    with open(f"{rmse_format}.txt", "w") as f:
         f.write(f"{y_rmse}")
 
 
