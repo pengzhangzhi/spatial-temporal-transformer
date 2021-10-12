@@ -46,8 +46,10 @@ class Mydataset(torch.utils.data.Dataset):
         assert len(x[0]) == len(y)
         self.x = x
         self.y = y
-
-        half_hour = torch.LongTensor(list(map(lambda x: (x.astype(int))%100-1, timestamp)))
+        half_hour = list(map(lambda x: (x.astype(int))%100, timestamp))
+        if min(half_hour) == 1:
+            half_hour = list(map(lambda x: x - 1, half_hour))
+        half_hour = torch.LongTensor(half_hour)
         # day_of_week = list(map(lambda x: int(x[-4:-2]) % 7 + 1, timestamp))
         self.timestamp = half_hour
         self.length = len(y)
@@ -141,7 +143,7 @@ def train(args, model=None, experiment_path=None):
     model_path = os.path.join(experiment_path, "best_model.pt")
     early_stop = EarlyStop(patience=int(args.epochs * 0.5), path=model_path)
 
-    for epoch in range(args.pretrain_epochs):
+    for epoch in range(args.epochs):
         # train
         train_loss, train_rmse, class_loss, class_accuracy = train_one_epoch(model=model,
                                                                              optimizer=optimizer,
@@ -258,7 +260,7 @@ def pretrain(args, ):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", '--config-name', type=str, default="TaxiBJ")
+    parser.add_argument("-c", '--config-name', type=str, default="TaxiNYC")
     parser.add_argument("-e", '--exp-name', type=str)
     parser.add_argument("-pe", '--pretrain-epochs', type=int, default=0)
     parser.add_argument("-pt", '--pretrain-times', type=int, default=-1)
