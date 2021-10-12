@@ -77,6 +77,7 @@ class STTransformer(nn.Module):
                  conv_channels=64,
                  drop_prob=0.1,
                  conv3d=False,
+                 time_class=48,
                  **kwargs):
         """
 
@@ -110,15 +111,14 @@ class STTransformer(nn.Module):
         self.pre_conv = pre_conv
         self.conv3d = conv3d
         if pre_conv:
-                self.pre_close_conv = nn.Sequential(
-                    BasicBlock(inplanes=close_channels, planes=conv_channels),
-                    # BasicBlock(inplanes=close_channels,planes=conv_channels),
-                )
-                self.pre_trend_conv = nn.Sequential(
-                    BasicBlock(inplanes=trend_channels, planes=conv_channels),
-                    # BasicBlock(inplanes=trend_channels,planes=conv_channels)
-                )
-
+            self.pre_close_conv = nn.Sequential(
+                BasicBlock(inplanes=close_channels, planes=conv_channels),
+                # BasicBlock(inplanes=close_channels,planes=conv_channels),
+            )
+            self.pre_trend_conv = nn.Sequential(
+                BasicBlock(inplanes=trend_channels, planes=conv_channels),
+                # BasicBlock(inplanes=trend_channels,planes=conv_channels)
+            )
 
         # close_channels, trend_channels = nb_flow * close_channels, nb_flow * trend_channels
 
@@ -163,6 +163,17 @@ class STTransformer(nn.Module):
         self.close_ilayer = iLayer(input_shape=input_shape)
         self.trend_ilayer = iLayer(input_shape=input_shape)
 
+        self.mlp = nn.Sequential(
+            nn.Linear((close_dim + trend_dim), time_class)
+        )
+
+        self.mlp_head_close = nn.Sequential(
+            nn.Linear(close_dim, output_dim),
+        )
+        self.mlp_head_trend = nn.Sequential(
+            nn.Linear(trend_dim, output_dim),
+        )
+
     def forward(self, xc, xt, x_ext=None):
         """
 
@@ -179,10 +190,10 @@ class STTransformer(nn.Module):
             xc = self.pre_close_conv(xc)
             xt = self.pre_trend_conv(xt)
 
-
-
         close_out = self.closeness_transformer(xc)
         trend_out = self.trend_transformer(xt)
+        identity_close_out, identity_trend_out = close_out, trend_out
+        close_out, trend_out = self.mlp_head_close(close_out), self.mlp_head_trend(trend_out)
 
         # relu + linear
 
@@ -195,12 +206,18 @@ class STTransformer(nn.Module):
 
         if self.shortcut:
             shortcut_out = self.Rc_Xc(identity_xc) + self.Rc_Xt(identity_xt)
-            # +self.Rc_conv_Xc(xc_conv)+self.Rc_conv_Xt(xt_conv)
+
             out += shortcut_out
 
         if not self.training:
             out = out.relu()
 
+
+        # classification task
+        # xc, xt: (Batch_size, Token_Dim)
+        concat_x = torch.cat([identity_close_out, identity_trend_out], dim=-1)
+        out_class = self.mlp(concat_x)
+        out = (out, out_class)
         return out
 
 
@@ -226,7 +243,7 @@ if __name__ == '__main__':
     # 1,12,32,32 -> 1,64,16*12
     xt = torch.randn(shape)
     xc = torch.randn(shape)
-    transformer = STTransformer(close_channels=12, trend_channels=12,conv3d=True)
+    transformer = STTransformer(close_channels=12, trend_channels=12, conv3d=True)
 
     pred = transformer(xc, xt)
     print(pred.shape)

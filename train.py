@@ -41,54 +41,19 @@ def make_pretrain_path(args):
 
 
 class Mydataset(torch.utils.data.Dataset):
-    def __init__(self, x, y,normalization=None):
+    def __init__(self, x, y,timestamp,*args,**kwargs):
         super(Mydataset, self).__init__()
         assert len(x[0]) == len(y)
         self.x = x
         self.y = y
+
+        half_hour = torch.LongTensor(list(map(lambda x: (x.astype(int))%100-1, timestamp)))
+        # day_of_week = list(map(lambda x: int(x[-4:-2]) % 7 + 1, timestamp))
+        self.timestamp = half_hour
         self.length = len(y)
-        self.normalization = normalization
 
     def __getitem__(self, idx):
-        # x_all = [x[idx] for x in self.x[:-1]]
-        # x_all = [rearrange("n c h w -> c n h w", x) for x in x_all]
-        # lengths = [len(x) for x in x_all]
-        # lengths += [self.x[-1],1]
-        # y = rearrange("n h w -> 1 n h w", self.y[idx])
-        # x_all.append(y)
-        # set = torch.cat(x_all, dim=0)
-        # his_length = len(set) - 1
-        # exchange_idx = torch.randint(0, his_length - 1, size=(1,))
-        # set[exchange_idx], set[-1] = set[-1], set[exchange_idx]
-        # # set = rearrange(set,"c n h w -> n c h w")
-        #
-        # for item in list(torch.split(set,lengths))
-        if self.normalization:
-            xc,xt,x_ext = [x[idx] for x in self.x]
-            y = self.y[idx]
-            y = rearrange(y, "n h w -> 1 n h w")
-
-            xc, xt = list(map(lambda x: rearrange(x, "n l h w -> l n h w"), [xc, xt]))
-
-            data = torch.cat([xc, xt, y], dim=0)  # l' b n h w
-            his_len = len(data) - 1
-            idx = torch.randint(0, his_len - 1, (1,))
-            temp_y = data[-1].clone()
-
-            data[-1] = data[idx]
-            data[idx] = temp_y
-            chunk_len = [len(xc), len(xt), 1]
-            xc, xt, y = list(map(lambda x: rearrange(x, "l n h w ->  n l h w"), list(torch.split(data, chunk_len))))
-            y = rearrange(y, "n 1 h w -> n h w")
-            # normalize data[idx]
-            data[idx] = self.normalization.transform(data[idx])
-            # renormalize y
-            y = self.normalization.inverse_transform(y)
-            ret = (xc, xt,x_ext, y)
-        else:
-
-            ret = (*[x[idx] for x in self.x], self.y[idx])
-
+        ret = (*[x[idx] for x in self.x], self.y[idx],self.timestamp[idx])
         return ret
 
     def __len__(self):
@@ -128,8 +93,8 @@ def get_loaders(args, pretrain=False):
     pretrain_way = args.pretrain_way
     split = split * 0.3 if pretrain else split
     mmn = mmn if pretrain else None
-    train_dataset = Mydataset(X_train, Y_train, normalization=mmn)
-    test_dataset = Mydataset(X_test, Y_test, )
+    train_dataset = Mydataset(X_train, Y_train,timestamp_train)
+    test_dataset = Mydataset(X_test, Y_test, timestamp_test)
 
     nw = 0
     # nw = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
@@ -178,26 +143,25 @@ def train(args, model=None, experiment_path=None):
     model_path = os.path.join(experiment_path, "best_model.pt")
     early_stop = EarlyStop(patience=int(args.epochs * 0.5), path=model_path)
 
-    for epoch in range(args.epochs):
+    for epoch in range(args.pretrain_epochs):
         # train
-        train_loss, train_rmse = train_one_epoch(model=model,
-                                                 optimizer=optimizer,
-                                                 data_loader=train_loader,
-                                                 device=device,
-                                                 epoch=epoch)
+        train_loss, train_rmse, class_loss, class_accuracy = train_one_epoch(model=model,
+                                                                             optimizer=optimizer,
+                                                                             data_loader=train_loader,
+                                                                             device=device,
+                                                                             epoch=epoch)
 
-        # print("train:",train_loss, train_rmse)
         scheduler.step()
 
         # validate
-        val_loss, val_rmse = evaluate(model=model,
-                                      data_loader=val_loader,
-                                      device=device,
-                                      epoch=epoch)
+        val_loss, val_rmse, val_class_loss, val_class_accuracy = evaluate(model=model,
+                                                                          data_loader=val_loader,
+                                                                          device=device,
+                                                                          epoch=epoch)
 
-        # print("val:", val_loss, val_rmse)
-
-        results = [train_loss, train_rmse, val_loss, val_rmse, optimizer.param_groups[0]["lr"]]
+        results = [train_loss, train_rmse, class_loss, class_accuracy
+            , val_loss, val_rmse, val_class_loss, val_class_accuracy
+            , optimizer.param_groups[0]["lr"]]
 
         save_train_history(experiment_path, results, epoch, tb_writer)
 
@@ -206,13 +170,13 @@ def train(args, model=None, experiment_path=None):
                                                           data_loader=test_loader,
                                                           device=device,
                                                           args=args)
-        # append a error list so as to save a error list.
-        test_results = [MSE, y_rmse*args.m_factor_2, y_mae, y_mape, relative_error]
+
+        test_results = [MSE, y_rmse * args.m_factor_2, y_mae, y_mape, relative_error]
 
         save_test_results(test_results, experiment_path)
 
         if early_stop(val_rmse, model):
-            print("early_stop")
+            print("early stop~")
             break
 
     model.load_state_dict(torch.load(model_path))
@@ -256,7 +220,7 @@ def pretrain(args, ):
         train_loader, val_loader, test_loader = get_loaders(args, pretrain=True)
         for epoch in range(args.pretrain_epochs):
             # train
-            train_loss, train_rmse = train_one_epoch(model=model,
+            train_loss, train_rmse,class_loss,class_accuracy = train_one_epoch(model=model,
                                                      optimizer=optimizer,
                                                      data_loader=train_loader,
                                                      device=device,
@@ -265,12 +229,14 @@ def pretrain(args, ):
             scheduler.step()
 
             # validate
-            val_loss, val_rmse = evaluate(model=model,
+            val_loss, val_rmse,val_class_loss,val_class_accuracy = evaluate(model=model,
                                           data_loader=val_loader,
                                           device=device,
                                           epoch=epoch)
 
-            results = [train_loss, train_rmse, val_loss, val_rmse, optimizer.param_groups[0]["lr"]]
+            results = [train_loss, train_rmse,class_loss,class_accuracy
+                , val_loss, val_rmse,val_class_loss,val_class_accuracy
+                , optimizer.param_groups[0]["lr"]]
 
             save_train_history(pretrain_dir, results, epoch, tb_writer)
 

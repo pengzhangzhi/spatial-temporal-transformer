@@ -36,93 +36,115 @@ def pretrain_shuffle(xc, xt, x_ext, y):
     :param y: (batch size, nb_flow, h, w)
 
     """
-    xc, xt = list(map(lambda x: rearrange(x,"b n l h w -> l b n h w"),[xc,xt]))
-    y = rearrange(y,"b n h w -> 1 b n h w")
-    data = torch.cat([xc,xt,y],dim=0) # l' b n h w
-    his_len = len(data)-1
-    idx = torch.randint(0,his_len-1,(1,))
-    temp_y = data[-1].clone() # normalize data[idx]
+    xc, xt = list(map(lambda x: rearrange(x, "b n l h w -> l b n h w"), [xc, xt]))
+    y = rearrange(y, "b n h w -> 1 b n h w")
+    data = torch.cat([xc, xt, y], dim=0)  # l' b n h w
+    his_len = len(data) - 1
+    idx = torch.randint(0, his_len - 1, (1,))
+    temp_y = data[-1].clone()  # normalize data[idx]
     data[-1] = data[idx]
     data[idx] = temp_y
-    chunk_len = [len(xc),len(xt),1]
-    xc,xt,y = list(map(lambda x: rearrange(x,"l b n h w ->  b n l h w"),list(torch.split(data,chunk_len))))
-    y = rearrange(y,"b n l h w -> b n h w")
+    chunk_len = [len(xc), len(xt), 1]
+    xc, xt, y = list(map(lambda x: rearrange(x, "l b n h w ->  b n l h w"), list(torch.split(data, chunk_len))))
+    y = rearrange(y, "b n l h w -> b n h w")
     # renormalize y
-    return xc,xt,x_ext,y
+    return xc, xt, x_ext, y
 
 
-def train_one_epoch(model, optimizer, data_loader, device, epoch):
+def train_one_epoch(model, optimizer, data_loader, device, epoch, alpha=1.0):
     model.train()
-    loss_function = torch.nn.MSELoss()
+    mse_loss_criterion = torch.nn.MSELoss()
+    cross_entropy_criterion = torch.nn.CrossEntropyLoss()
     accu_loss = 0.0  # 累计损失
     accu_rmse = 0.0  # 累计rmse
-
+    accu_correct = 0  # accumulative correct classification
+    accu_class_loss = 0.0
     sample_num = 0
 
     data_loader = tqdm(data_loader)
     for step, data in enumerate(data_loader):
         optimizer.zero_grad()
-        xc, xt, x_ext, y = data
-        # xc, xt, x_ext, y = pretrain_shuffle(xc, xt, x_ext, y)
-        xc, xt, x_ext, y = xc.to(device), xt.to(device), x_ext.to(device), y.to(device)
+        xc, xt, x_ext, y, y_time = data
 
-        pred = model(xc, xt, x_ext)
-        loss = loss_function(pred, y)
+        xc, xt, x_ext, y, y_time = xc.to(device), xt.to(device), x_ext.to(device), y.to(device), y_time.to(device)
+
+        pred, pred_class = model(xc, xt, x_ext)
+        mse_loss = mse_loss_criterion(pred, y)
+        cross_entropy_loss = cross_entropy_criterion(pred_class, y_time)
+        loss = mse_loss + alpha * cross_entropy_loss
         loss.backward()
         optimizer.step()
 
-        avg_mse = loss.item()
+        avg_mse = mse_loss.item()
         avg_rmse = avg_mse ** 0.5
         batch_mse = avg_mse * len(y)
         batch_rmse = avg_rmse * len(y)
         accu_loss += batch_mse
         accu_rmse += batch_rmse
-
+        accu_class_loss += cross_entropy_loss.item() * len(y)
+        accu_correct += (pred_class.argmax(-1) == y_time).sum()
         sample_num += len(y)
-        data_loader.desc = "[train epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}".format(epoch,
-                                                                                   avg_mse,
-                                                                                   avg_rmse)
+        data_loader.desc = "[train epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}, " \
+                           "Class_Loss: {:.3f}, Accuracy: {:.3f} ".format(epoch,
+                                                                           avg_mse,
+                                                                           avg_rmse,
+                                                                           cross_entropy_loss.item(),
+                                                                           accu_correct/len(y_time))
 
         if not torch.isfinite(loss):
             print('WARNING: non-finite loss, ending training ', loss)
             sys.exit(1)
 
-    return accu_loss / sample_num, accu_rmse / sample_num
+    return accu_loss / sample_num, accu_rmse / sample_num, \
+           accu_class_loss / sample_num, accu_correct / sample_num
 
 
 @torch.no_grad()
 def evaluate(model, data_loader, device, epoch):
-    loss_function = torch.nn.MSELoss()
 
     model.eval()
 
+    mse_loss_criterion = torch.nn.MSELoss()
+    cross_entropy_criterion = torch.nn.CrossEntropyLoss()
     accu_loss = 0.0  # 累计损失
     accu_rmse = 0.0  # 累计rmse
+    accu_correct = 0  # accumulative correct classification
+    accu_class_loss = 0.0
+    sample_num = 0
 
     sample_num = 0
     data_loader = tqdm(data_loader)
     for step, data in enumerate(data_loader):
-        xc, xt, x_ext, y = data
-        xc, xt, x_ext, y = xc.to(device), xt.to(device), x_ext.to(device), y.to(device)
+        xc, xt, x_ext, y, y_time = data
+        xc, xt, x_ext, y, y_time = xc.to(device), xt.to(device), x_ext.to(device), y.to(device), y_time.to(device)
 
-        pred = model(xc, xt, x_ext)
-        loss = loss_function(pred, y)
-        avg_mse = loss.item()
+        pred, pred_class = model(xc, xt, x_ext)
+        mse_loss = mse_loss_criterion(pred, y)
+        cross_entropy_loss = cross_entropy_criterion(pred_class, y_time)
+        # loss = mse_loss + alpha * cross_entropy_loss
+        avg_mse = mse_loss.item()
         avg_rmse = avg_mse ** 0.5
         batch_mse = avg_mse * len(y)
         batch_rmse = avg_rmse * len(y)
         accu_loss += batch_mse
         accu_rmse += batch_rmse
-        data_loader.desc = "[val epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}".format(epoch,
-                                                                                 avg_mse,
-                                                                                 avg_rmse)
+        accu_class_loss += cross_entropy_loss.item() * len(y)
+        accu_correct += (pred_class.argmax(-1) == y_time).sum()
         sample_num += len(y)
-    return accu_loss / sample_num, accu_rmse / sample_num
+        data_loader.desc = "[Val epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}, " \
+                           "Class_Loss: {:.3f}, Accuracy: {:.3f} ".format(epoch,
+                                                                          avg_mse,
+                                                                          avg_rmse,
+                                                                          cross_entropy_loss.item(),
+                                                                          accu_correct / len(y_time))
+
+    return accu_loss / sample_num, accu_rmse / sample_num, \
+           accu_class_loss / sample_num, accu_correct / sample_num
 
 
 @torch.no_grad()
 def test(model, data_loader, device, args):
-    assert data_loader.batch_size == len(data_loader.dataset),\
+    assert data_loader.batch_size == len(data_loader.dataset), \
         f"{data_loader.batch_size}！= {len(data_loader.dataset)}"
 
     loss_function = torch.nn.MSELoss()
@@ -133,9 +155,9 @@ def test(model, data_loader, device, args):
     accu_rmse = 0.0  # 累计rmse
 
     data = next(iter(data_loader))
-    xc, xt, x_ext, y = data
+    xc, xt, x_ext, y, y_time = data
     xc, xt, x_ext, y = xc.to(device), xt.to(device), x_ext.to(device), y.to(device)
-    pred = model(xc, xt, x_ext)
+    pred, pred_class = model(xc, xt, x_ext)
     loss = loss_function(pred, y)
     MSE = loss.item()
     y_rmse, y_mae, y_mape, relative_error = compute(y, pred)

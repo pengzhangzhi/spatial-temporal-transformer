@@ -191,9 +191,8 @@ class ViT(nn.Module):
         #     mlp_dim = dim
         self.mlp_head = nn.Sequential(
             nn.LayerNorm(mlp_dim),
-            nn.Linear(mlp_dim, num_classes),
-            # nn.ReLU(),
-            # nn.Linear(num_classes, num_classes)
+            # nn.Linear(mlp_dim, num_classes),
+
         )
         self.seq_pool = seq_pool
         if seq_pool:

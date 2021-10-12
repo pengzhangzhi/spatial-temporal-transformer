@@ -83,7 +83,7 @@ def convert_TaxiBJ(c=4, t=1, depth=2, pretrain_epoch=1200,pretrain_way_="random"
         prediction_offset = 0
         random_pick = True
 
-
+        loss_weight = 1.0
         pretrain_epochs = pretrain_epoch
         pretrain_times = pretrain_times_
         pretrain_way = pretrain_way_
@@ -136,6 +136,7 @@ def convert_BikeNYC(c=6,t=2,
         dataset = "BikeNYC"
         prediction_offset = 0
 
+        loss_weight = 1.0
         random_pick = False
         pretrain_epochs = 600
         pretrain_times = pt
