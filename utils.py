@@ -82,14 +82,15 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch, alpha=1.0):
         accu_loss += batch_mse
         accu_rmse += batch_rmse
         accu_class_loss += cross_entropy_loss.item() * len(y)
-        accu_correct += (pred_class.argmax(-1) == y_time).sum()
+        num_correct = (pred_class.argmax(-1) == y_time).sum()
+        accu_correct += num_correct
         sample_num += len(y)
         data_loader.desc = "[train epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}, " \
                            "Class_Loss: {:.3f}, Accuracy: {:.3f} ".format(epoch,
                                                                            avg_mse,
                                                                            avg_rmse,
                                                                            cross_entropy_loss.item(),
-                                                                           accu_correct/len(y_time))
+                                                                           num_correct/len(y_time))
 
         if not torch.isfinite(loss):
             print('WARNING: non-finite loss, ending training ', loss)

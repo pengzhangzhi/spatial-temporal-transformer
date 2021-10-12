@@ -90,9 +90,7 @@ def get_loaders(args, pretrain=False):
     mmn, external_dim, timestamp_train, timestamp_test = list(load(args,pretrain))
     batch_size = args.batch_size
     split = args.split
-    pretrain_way = args.pretrain_way
     split = split * 0.3 if pretrain else split
-    mmn = mmn if pretrain else None
     train_dataset = Mydataset(X_train, Y_train,timestamp_train)
     test_dataset = Mydataset(X_test, Y_test, timestamp_test)
 
