@@ -46,12 +46,12 @@ class Mydataset(torch.utils.data.Dataset):
         assert len(x[0]) == len(y)
         self.x = x
         self.y = y
-        half_hour = list(map(lambda x: (x.astype(int))%100, timestamp))
-        if min(half_hour) == 1:
-            half_hour = list(map(lambda x: x - 1, half_hour))
-        half_hour = torch.LongTensor(half_hour)
-        # day_of_week = list(map(lambda x: int(x[-4:-2]) % 7 + 1, timestamp))
-        self.timestamp = half_hour
+       # half_hour = list(map(lambda x: (x.astype(int))%100, timestamp))
+       #  if min(half_hour) == 1:
+       #     half_hour = list(map(lambda x: x - 1, half_hour))
+       # half_hour = torch.LongTensor(half_hour)
+        day_of_week = list(map(lambda x: int(x[-4:-2]) % 7 , timestamp))
+        self.timestamp = day_of_week
         self.length = len(y)
 
     def __getitem__(self, idx):

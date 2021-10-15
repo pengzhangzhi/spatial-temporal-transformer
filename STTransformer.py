@@ -164,7 +164,9 @@ class STTransformer(nn.Module):
         self.trend_ilayer = iLayer(input_shape=input_shape)
 
         self.mlp = nn.Sequential(
-            nn.Linear((close_dim + trend_dim), time_class)
+                nn.Linear((close_dim + trend_dim), (close_dim + trend_dim)),
+                nn.ReLU(),
+                nn.Linear((close_dim + trend_dim), time_class)
         )
 
         self.mlp_head_close = nn.Sequential(
