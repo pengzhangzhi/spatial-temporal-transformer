@@ -27,7 +27,7 @@ from STTransformer import create_model
 from help_funcs import read_config_class, split_dataset, make_experiment_dir, save_train_history, save_test_results, \
     Logger, print_run_time, EarlyStop
 from read_data import load
-from utils import train_one_epoch, evaluate, test
+from utils import train_one_epoch, evaluate, test, load_aux_dict
 
 
 def make_pretrain_path(args):
@@ -173,6 +173,8 @@ def train(args, model=None, experiment_path=None):
         model = create_model(arg=args)
     else:
         model = model
+    model_path = "./best_model.pt"
+    load_aux_dict(model_path, model)
 
     optimizer, scheduler = get_optim(model, args)
     model_path = os.path.join(experiment_path, "best_model.pt")
@@ -180,24 +182,28 @@ def train(args, model=None, experiment_path=None):
 
     for epoch in range(args.epochs):
         # train
-        train_loss, train_rmse = train_one_epoch(model=model,
+        train_loss, train_rmse,train_loss_aux, train_rmse_aux = train_one_epoch(model=model,
                                                  optimizer=optimizer,
                                                  data_loader=train_loader,
                                                  device=device,
-                                                 epoch=epoch)
+                                                 epoch=epoch,
+                                                 location_ratio = args.location_ratio)
 
         # print("train:",train_loss, train_rmse)
         scheduler.step()
 
         # validate
-        val_loss, val_rmse = evaluate(model=model,
+        val_loss, val_rmse, val_loss_aux, val_rmse_aux = evaluate(model=model,
                                       data_loader=val_loader,
                                       device=device,
-                                      epoch=epoch)
+                                      epoch=epoch,
+                                      location_ratio = args.location_ratio)
 
         # print("val:", val_loss, val_rmse)
 
-        results = [train_loss, train_rmse, val_loss, val_rmse, optimizer.param_groups[0]["lr"]]
+        results = [train_loss, train_rmse,train_loss_aux, train_rmse_aux,
+                   val_loss, val_rmse, val_loss_aux, val_rmse_aux,
+                   optimizer.param_groups[0]["lr"]]
 
         save_train_history(experiment_path, results, epoch, tb_writer)
 
@@ -205,7 +211,8 @@ def train(args, model=None, experiment_path=None):
         MSE, y_rmse, y_mae, y_mape, relative_error = test(model=model,
                                                           data_loader=test_loader,
                                                           device=device,
-                                                          args=args)
+                                                          args=args,
+                                                          location_ratio = args.location_ratio)
         # append a error list so as to save a error list.
         test_results = [MSE, y_rmse*args.m_factor_2, y_mae, y_mape, relative_error]
 

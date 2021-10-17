@@ -16,6 +16,14 @@ from tqdm import tqdm
 from help_funcs import print_run_time
 
 
+def unravel_index(index, shape):
+    out = []
+    for dim in reversed(shape):
+        out.append(index % dim)
+        index = index // dim
+    return tuple(reversed(out))
+
+
 def write_pickle(list_info: list, file_name: str):
     with open(file_name, 'wb') as f:
         pickle.dump(list_info, f)
@@ -50,12 +58,47 @@ def pretrain_shuffle(xc, xt, x_ext, y):
     # renormalize y
     return xc,xt,x_ext,y
 
+def descalarization(idx, shape):
+    res = []
+    N = np.prod(shape)
+    for n in shape:
+        N //= n
+        res.append(idx // N)
+        idx %= N
+    return tuple(res)
 
-def train_one_epoch(model, optimizer, data_loader, device, epoch):
+
+def compute_hard_region_idx(y, y_main, location_ratio):
+    error_per_location = rearrange(torch.abs(y - y_main), "b n h w -> h w (b n)").mean(-1)
+    numOfLocations = error_per_location.shape[0] * error_per_location.shape[1]
+    k = int(location_ratio * numOfLocations)
+    l = map(lambda k: descalarization(k, error_per_location.size()),
+            torch.topk(error_per_location.flatten(), k).indices)
+    idx = list(map(list, zip(*l)))
+    return error_per_location,idx
+def generate_hard_region_mask(y, y_main, location_ratio):
+    """
+    compute hard regions_idx, generate hard region mask and return it.
+    :param y:
+    :param y_main:
+    :param location_ratio:
+    :return:
+    """
+    error_per_location,idx = compute_hard_region_idx(y, y_main, location_ratio)
+
+    # generate mask matrix
+    mask = torch.zeros_like(error_per_location, dtype=torch.bool)
+    mask[idx] = 1
+    return mask
+
+def train_one_epoch(model, optimizer, data_loader, device, epoch,location_ratio=0.2):
     model.train()
-    loss_function = torch.nn.MSELoss()
+    criterion_main, criterion_aux = torch.nn.MSELoss(),torch.nn.MSELoss()
     accu_loss = 0.0  # 累计损失
     accu_rmse = 0.0  # 累计rmse
+
+    accu_loss_aux = 0.0  # 累计损失
+    accu_rmse_aux = 0.0  # 累计rmse
 
     sample_num = 0
 
@@ -66,66 +109,121 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch):
         # xc, xt, x_ext, y = pretrain_shuffle(xc, xt, x_ext, y)
         xc, xt, x_ext, y = xc.to(device), xt.to(device), x_ext.to(device), y.to(device)
 
-        pred = model(xc, xt, x_ext)
-        loss = loss_function(pred, y)
-        loss.backward()
+        y_main, y_aux = model(xc, xt, x_ext)
+        loss_main = criterion_main(y_main, y)
+
+
+        mask = generate_hard_region_mask(y, y_main, location_ratio)
+        # print(mask)
+        # get the prediction and ground truth value of hard regions
+        y_aux_hard_regions = y_aux[:,:,mask]
+        y_true_hard_regions = y[:,:,mask]
+        loss_aux = criterion_aux(y_aux_hard_regions, y_true_hard_regions)
+
+        # loss = loss_main + loss_aux
+        loss_main.backward()
+        loss_aux.backward()
         optimizer.step()
 
-        avg_mse = loss.item()
+        avg_mse = loss_main.item()
         avg_rmse = avg_mse ** 0.5
         batch_mse = avg_mse * len(y)
         batch_rmse = avg_rmse * len(y)
         accu_loss += batch_mse
         accu_rmse += batch_rmse
 
+        avg_mse_aux = loss_aux.item()
+        avg_rmse_aux = avg_mse_aux ** 0.5
+        batch_mse_aux = avg_mse_aux * len(y)
+        batch_rmse_aux = avg_rmse_aux * len(y)
+        accu_loss_aux += batch_mse_aux
+        accu_rmse_aux += batch_rmse_aux
+
         sample_num += len(y)
-        data_loader.desc = "[train epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}".format(epoch,
+        data_loader.desc = "[train epoch {}] MSELoss: {:.3f}, RMSE: {:.3f} MSELoss_aux: {:.3f}, RMSE_aux: {:.3f} ".format(
+                                                                                    epoch,
                                                                                    avg_mse,
-                                                                                   avg_rmse)
+                                                                                   avg_rmse,
+                                                                                    avg_mse_aux,
+                                                                                    avg_rmse_aux,
 
-        if not torch.isfinite(loss):
-            print('WARNING: non-finite loss, ending training ', loss)
-            sys.exit(1)
+        )
 
-    return accu_loss / sample_num, accu_rmse / sample_num
+        # if not torch.isfinite(loss):
+        #     print('WARNING: non-finite loss, ending training ', loss)
+        #     sys.exit(1)
+
+    return accu_loss / sample_num, accu_rmse / sample_num, accu_loss_aux / sample_num, accu_rmse_aux / sample_num
 
 
 @torch.no_grad()
-def evaluate(model, data_loader, device, epoch):
-    loss_function = torch.nn.MSELoss()
+def evaluate(model, data_loader, device, epoch, location_ratio=0.2):
+
 
     model.eval()
 
+    criterion_main, criterion_aux = torch.nn.MSELoss(), torch.nn.MSELoss()
     accu_loss = 0.0  # 累计损失
     accu_rmse = 0.0  # 累计rmse
 
+    accu_loss_aux = 0.0  # 累计损失
+    accu_rmse_aux = 0.0  # 累计rmse
+
     sample_num = 0
+
+
     data_loader = tqdm(data_loader)
     for step, data in enumerate(data_loader):
         xc, xt, x_ext, y = data
         xc, xt, x_ext, y = xc.to(device), xt.to(device), x_ext.to(device), y.to(device)
 
-        pred = model(xc, xt, x_ext)
-        loss = loss_function(pred, y)
-        avg_mse = loss.item()
+        y_main, y_aux = model(xc, xt, x_ext)
+        loss_main = criterion_main(y_main, y)
+
+        mask = generate_hard_region_mask(y, y_main, location_ratio)
+
+        # get the prediction and ground truth value of hard regions
+        y_aux_hard_regions = y_aux[:, :, mask]
+        y_true_hard_regions = y[:, :, mask]
+        loss_aux = criterion_aux(y_aux_hard_regions, y_true_hard_regions)
+
+        avg_mse = loss_main.item()
         avg_rmse = avg_mse ** 0.5
         batch_mse = avg_mse * len(y)
         batch_rmse = avg_rmse * len(y)
         accu_loss += batch_mse
         accu_rmse += batch_rmse
-        data_loader.desc = "[val epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}".format(epoch,
-                                                                                 avg_mse,
-                                                                                 avg_rmse)
+
+        avg_mse_aux = loss_aux.item()
+        avg_rmse_aux = avg_mse_aux ** 0.5
+        batch_mse_aux = avg_mse_aux * len(y)
+        batch_rmse_aux = avg_rmse_aux * len(y)
+        accu_loss_aux += batch_mse_aux
+        accu_rmse_aux += batch_rmse_aux
+
         sample_num += len(y)
-    return accu_loss / sample_num, accu_rmse / sample_num
+        data_loader.desc = "[val epoch {}] MSELoss: {:.3f}, RMSE: {:.3f} MSELoss_aux: {:.3f}, RMSE_aux: {:.3f} ".format(
+            epoch,
+            avg_mse,
+            avg_rmse,
+            avg_mse_aux,
+            avg_rmse_aux,
+
+        )
+
+        # if not torch.isfinite(loss):
+        #     print('WARNING: non-finite loss, ending training ', loss)
+        #     sys.exit(1)
+
+    return accu_loss / sample_num, accu_rmse / sample_num, accu_loss_aux / sample_num, accu_rmse_aux / sample_num
 
 
 @torch.no_grad()
-def test(model, data_loader, device, args):
+def test(model, data_loader, device, args, location_ratio=0.2):
     assert data_loader.batch_size == len(data_loader.dataset),\
         f"{data_loader.batch_size}！= {len(data_loader.dataset)}"
 
-    loss_function = torch.nn.MSELoss()
+    # criterion_main, criterion_aux = torch.nn.MSELoss(),torch.nn.MSELoss()
 
     model.eval()
 
@@ -135,13 +233,45 @@ def test(model, data_loader, device, args):
     data = next(iter(data_loader))
     xc, xt, x_ext, y = data
     xc, xt, x_ext, y = xc.to(device), xt.to(device), x_ext.to(device), y.to(device)
-    pred = model(xc, xt, x_ext)
-    loss = loss_function(pred, y)
-    MSE = loss.item()
+    y_main, y_aux = model(xc, xt, x_ext)
+
+
+    mask = generate_hard_region_mask(y, y_main, location_ratio)
+
+
+    y_aux[:, :, ~mask] = 0
+    y_main[:, :, mask] = 0
+    pred = y_aux + y_main
+
+
     y_rmse, y_mae, y_mape, relative_error = compute(y, pred)
+    MSE = y_rmse ** 2
     print(f"[Test] MSE: {MSE:.2f}, RMSE(real): {y_rmse * args.m_factor:.2f},"
           f" MAE: {y_mae:.2f}, MAPE: {y_mape:.2f}, error_rate: {relative_error:.2f}")
     return MSE, y_rmse, y_mae, y_mape, relative_error
+
+
+def load_aux_dict(model_path,model):
+    """
+    load main network's weight to aux network.
+
+    :param model_path: path of saved model state_dict.
+    :param model: created model.
+    :return: model that have been loaded weights.
+    """
+    source_param_dict = torch.load(model_path)
+    # param_dict = {k:v for k,v in param_dict.items() if "main" in k}
+
+    model_dict = model.state_dict()
+    # temp = model_dict.copy()
+    # model_dict = {k:param_dict[k.replace("auxiliary","main")] for k,v in param_dict.items() if "auxiliary" in k}
+    for k in model_dict:
+        if "auxiliary" in k:
+            model_dict[k] = source_param_dict[k.replace("auxiliary", "main")]
+    model.load_state_dict(model_dict)
+    print("load main network parameters to aux network!")
+    return model
+
 
 
 class MinMaxNormalization(object):

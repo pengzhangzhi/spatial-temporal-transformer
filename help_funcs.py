@@ -144,13 +144,15 @@ def save_train_history(experiment_path, results, epoch, tb_writer=None):
     :param epoch: current epoch
     :param tb_writer: tensorbard
     """
-    tags = ["train_loss", "train_rmse", "val_loss", "val_rmse", "learning_rate"]
+    tags = ["train_loss", "train_rmse", "train_loss_aux", "train_rmse_aux",
+            "val_loss", "val_rmse","val_loss_aux", "val_rmse_aux",
+            "learning_rate"]
     history = {}
     print(f"[Train Epoch({epoch})]")
     for tag, result in zip(tags, results):
         history.setdefault(tag, []).append(result)
 
-        print(f"{tag}: {result}")
+        print(f"{tag}: {result:.2f}")
         if tb_writer:
             tb_writer.add_scalar(tag, result, epoch)
     print("=" * 20)

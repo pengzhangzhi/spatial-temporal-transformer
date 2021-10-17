@@ -66,6 +66,53 @@ class iLayer(nn.Module):
         return x * self.weights
 
 
+class Networks(nn.Module):
+    def __init__(self,map_height=32, map_width=32, patch_size=4,
+                 close_channels=6, trend_channels=6, close_dim=1024, trend_dim=1024,
+                 close_depth=4, trend_depth=4, close_head=2,
+                 trend_head=2, close_mlp_dim=2048, trend_mlp_dim=2048, nb_flow=2,
+                 seq_pool=True,
+                 pre_conv=True,
+                 shortcut=True,
+                 conv_channels=64,
+                 drop_prob=0.1,
+                 conv3d=False,
+                 **kwargs):
+        super(Networks, self).__init__()
+        self.ST_transformer_main = STTransformer(map_height=map_height,map_width=map_width,patch_size=patch_size,close_channels=close_channels,
+                                                 trend_channels=trend_channels,close_dim=close_dim,trend_dim=trend_dim,
+                                                 close_depth=close_depth,trend_depth=trend_depth,close_head=close_head,
+                                                 trend_head=trend_head, close_mlp_dim=close_mlp_dim,
+                                                 trend_mlp_dim=trend_mlp_dim, nb_flow=nb_flow,
+                                                 seq_pool=seq_pool,
+                                                 pre_conv=pre_conv,
+                                                 shortcut=shortcut,
+                                                 conv_channels=conv_channels,
+                                                 drop_prob=drop_prob,
+                                                 conv3d=conv3d,
+                                                 **kwargs
+                                                 )
+        self.ST_transformer_auxiliary = STTransformer(map_height=map_height,map_width=map_width,patch_size=patch_size,close_channels=close_channels,
+                                                 trend_channels=trend_channels,close_dim=close_dim,trend_dim=trend_dim,
+                                                 close_depth=close_depth,trend_depth=trend_depth,close_head=close_head,
+                                                 trend_head=trend_head, close_mlp_dim=close_mlp_dim,
+                                                 trend_mlp_dim=trend_mlp_dim, nb_flow=nb_flow,
+                                                 seq_pool=seq_pool,
+                                                 pre_conv=pre_conv,
+                                                 shortcut=shortcut,
+                                                 conv_channels=conv_channels,
+                                                 drop_prob=drop_prob,
+                                                 conv3d=conv3d,
+                                                 **kwargs
+                                                 )
+
+    def forward(self,xc, xt, x_ext=None):
+        out_main = self.ST_transformer_main(xc, xt, x_ext)
+        out_aux = self.ST_transformer_auxiliary(xc, xt, x_ext)
+        return out_main, out_aux
+
+
+
 class STTransformer(nn.Module):
     def __init__(self, map_height=32, map_width=32, patch_size=4,
                  close_channels=6, trend_channels=6, close_dim=1024, trend_dim=1024,
@@ -212,7 +259,7 @@ def create_model(arg):
     """
     device = arg.device
     arg_dict = arg_class2dict(arg)
-    model = STTransformer(**arg_dict)
+    model = Networks(**arg_dict)
     # num_close,map_height,map_width
     xc_shape = (arg.close_channels, arg.map_height, arg.map_width)
     xt_shape = (arg.trend_channels, arg.map_height, arg.map_width)
@@ -226,8 +273,8 @@ if __name__ == '__main__':
     # 1,12,32,32 -> 1,64,16*12
     xt = torch.randn(shape)
     xc = torch.randn(shape)
-    transformer = STTransformer(close_channels=12, trend_channels=12,conv3d=True)
+    transformer = Networks(close_channels=12, trend_channels=12,conv3d=True)
 
-    pred = transformer(xc, xt)
-    print(pred.shape)
+    out_main,out_aux = transformer(xc, xt)
+    print(out_main.shape,out_aux.shape)
     # todo: train,val,evaluate plot training curve,print test result.
