@@ -24,7 +24,7 @@
  "time_class": 24,
   "pretrain_times": 0,
   "shuffle_mode": "",
-  "experiment_name": "c10t4_ST-Transformer10",
+  "experiment_name": "c10t4_ST-Transformer5",
   "drop_prob": 0.1,
   "conv_channels": 64,
   "pre_conv": 0,
