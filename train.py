@@ -16,7 +16,7 @@ import argparse
 import math
 import os
 import sys
-
+import platform
 import torch
 import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
@@ -27,7 +27,7 @@ from STTransformer import create_model
 from help_funcs import read_config_class, split_dataset, make_experiment_dir, save_train_history, save_test_results, \
     Logger, print_run_time, EarlyStop
 from read_data import load
-from utils import train_one_epoch, evaluate, test
+from utils import train_one_epoch, evaluate, test, running_platform, running_window
 
 
 def make_pretrain_path(args):
@@ -131,7 +131,7 @@ def get_loaders(args, pretrain=False):
     train_dataset = Mydataset(X_train, Y_train, normalization=mmn)
     test_dataset = Mydataset(X_test, Y_test, )
 
-    nw = 0
+    nw = 0 if running_window() else min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])
     # nw = min([os.cpu_count(), batch_size if batch_size > 1 else 0, 8])  # number of workers
     print('Using {} dataloader workers every process'.format(nw))
 

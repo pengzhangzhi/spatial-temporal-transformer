@@ -1,3 +1,5 @@
+import platform
+
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -14,6 +16,14 @@ from einops import rearrange
 from tqdm import tqdm
 
 from help_funcs import print_run_time
+
+def running_window():
+    return "windows" in running_platform()
+
+
+
+def running_platform():
+    return platform.system().lower()
 
 
 def write_pickle(list_info: list, file_name: str):
@@ -36,19 +46,19 @@ def pretrain_shuffle(xc, xt, x_ext, y):
     :param y: (batch size, nb_flow, h, w)
 
     """
-    xc, xt = list(map(lambda x: rearrange(x,"b n l h w -> l b n h w"),[xc,xt]))
-    y = rearrange(y,"b n h w -> 1 b n h w")
-    data = torch.cat([xc,xt,y],dim=0) # l' b n h w
-    his_len = len(data)-1
-    idx = torch.randint(0,his_len-1,(1,))
-    temp_y = data[-1].clone() # normalize data[idx]
+    xc, xt = list(map(lambda x: rearrange(x, "b n l h w -> l b n h w"), [xc, xt]))
+    y = rearrange(y, "b n h w -> 1 b n h w")
+    data = torch.cat([xc, xt, y], dim=0)  # l' b n h w
+    his_len = len(data) - 1
+    idx = torch.randint(0, his_len - 1, (1,))
+    temp_y = data[-1].clone()  # normalize data[idx]
     data[-1] = data[idx]
     data[idx] = temp_y
-    chunk_len = [len(xc),len(xt),1]
-    xc,xt,y = list(map(lambda x: rearrange(x,"l b n h w ->  b n l h w"),list(torch.split(data,chunk_len))))
-    y = rearrange(y,"b n l h w -> b n h w")
+    chunk_len = [len(xc), len(xt), 1]
+    xc, xt, y = list(map(lambda x: rearrange(x, "l b n h w ->  b n l h w"), list(torch.split(data, chunk_len))))
+    y = rearrange(y, "b n l h w -> b n h w")
     # renormalize y
-    return xc,xt,x_ext,y
+    return xc, xt, x_ext, y
 
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch):
@@ -122,7 +132,7 @@ def evaluate(model, data_loader, device, epoch):
 
 @torch.no_grad()
 def test(model, data_loader, device, args):
-    assert data_loader.batch_size == len(data_loader.dataset),\
+    assert data_loader.batch_size == len(data_loader.dataset), \
         f"{data_loader.batch_size}！= {len(data_loader.dataset)}"
 
     loss_function = torch.nn.MSELoss()
