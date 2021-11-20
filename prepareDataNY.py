@@ -175,10 +175,10 @@ def load_meteorol_taxiNYC(timeslots, datapath):
 
     fname = os.path.join(datapath, 'TaxiNYC', 'NY_Meteorology.h5')
     f = h5py.File(fname, 'r')
-    Timeslot = f['date'].value
-    WindSpeed = f['WindSpeed'].value
-    Weather = f['Weather'].value
-    Temperature = f['Temperature'].value
+    Timeslot = f['date'][:]
+    WindSpeed = f['WindSpeed'][:]
+    Weather = f['Weather'][:]
+    Temperature = f['Temperature'][:]
     f.close()
 
     M = dict()  # map timeslot to index
@@ -449,10 +449,10 @@ def load_meteorol(timeslots, datapath):
     '''
     fname = os.path.join(datapath, 'TaxiBJ', 'BJ_Meteorology.h5')
     f = h5py.File(fname, 'r')
-    Timeslot = f['date'].value
-    WindSpeed = f['WindSpeed'].value
-    Weather = f['Weather'].value
-    Temperature = f['Temperature'].value
+    Timeslot = f['date'][:]
+    WindSpeed = f['WindSpeed'][:]
+    Weather = f['Weather'][:]
+    Temperature = f['Temperature'][:]
     f.close()
 
     M = dict()  # map timeslot to index
