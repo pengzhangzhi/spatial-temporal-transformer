@@ -34,7 +34,7 @@ def main(args, path):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c",'--config_name', type=str, default="argBJ")
+    parser.add_argument("-c",'--config_name', type=str, default="arg")
     opt = parser.parse_args()
     config_name = opt.config_name
 
