@@ -1,4 +1,4 @@
-python train.py -c "TaxiBJ"
+python train.py -c "TaxiBJ5"
 python train.py -c "TaxiBJ1"
 python train.py -c "TaxiBJ2"
 python train.py -c "TaxiBJ3"
