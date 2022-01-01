@@ -22,7 +22,7 @@
   "pretrain_epochs": 600,
   "pretrain_times": 1,
   "pretrain_way": "random",
-  "experiment_name": "TaxiBJ2",
+  "experiment_name": "TaxiBJ10",
   "ext_dim": 28,
   "drop_prob": 0.1,
   "conv_channels": 64,
