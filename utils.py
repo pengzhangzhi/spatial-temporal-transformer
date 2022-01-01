@@ -212,7 +212,7 @@ def compute(y_true, y_pred):
     y_mse = backend.mean((y_true - y_pred) ** 2)
     y_rmse = y_mse ** 0.5
     y_mae = backend.mean(backend.abs(y_true - y_pred))
-    idx = (y_true > 1e-6)
+    idx = (y_true > 10)
     y_mape = backend.mean(backend.abs((y_true[idx] - y_pred[idx]) / y_true[idx]))
     reshaped_y_true = y_true.reshape(-1)
     cell_mean = backend.mean(reshaped_y_true, 0)
