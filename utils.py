@@ -214,12 +214,13 @@ def compute(y_true, y_pred):
     y_mae = backend.mean(backend.abs(y_true - y_pred))
     idx = (y_true > 10)
     y_mape = backend.mean(backend.abs((y_true[idx] - y_pred[idx]) / y_true[idx]))
+    ape = backend.abs((y_true[idx] - y_pred[idx]) / y_true[idx])
     reshaped_y_true = y_true.reshape(-1)
     cell_mean = backend.mean(reshaped_y_true, 0)
     relative_error = y_mae / cell_mean
 
-    y_rmse, y_mae, y_mape, relative_error = y_rmse.item(), y_mae.item(), y_mape.item(), relative_error.item()
-    return y_rmse, y_mae, y_mape, relative_error
+    y_rmse, y_mae, y_mape, ape = y_rmse.item(), y_mae.item(), y_mape.item(), ape.item()
+    return y_rmse, y_mae, y_mape, ape
 
 
 def remove_incomplete_days(data, timestamps, T=48):
