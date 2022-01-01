@@ -213,7 +213,7 @@ def save_test_results(test_results, experiment_path):
     :param test_results: [MSE, y_rmse, y_mae, y_mape, relative_error]
     :param experiment_path: path for saving experiment result.
     """
-    test_tags = ["MSE", "RMSE", "MAE", "MAPE", "relative_error"]
+    test_tags = ["MSE", "RMSE", "MAE", "MAPE", "APE"]
     test_result = {}
     for tag, result in zip(test_tags, test_results):
         test_result.setdefault(tag, []).append(result)
