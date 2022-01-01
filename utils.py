@@ -148,10 +148,10 @@ def test(model, data_loader, device, args):
     pred = model(xc, xt, x_ext)
     loss = loss_function(pred, y)
     MSE = loss.item()
-    y_rmse, y_mae, y_mape, relative_error = compute(y, pred)
+    y_rmse, y_mae, y_mape, APE = compute(y, pred)
     print(f"[Test] MSE: {MSE:.2f}, RMSE(real): {y_rmse * args.m_factor:.2f},"
-          f" MAE: {y_mae:.2f}, MAPE: {y_mape:.2f}, error_rate: {relative_error:.2f}")
-    return MSE, y_rmse, y_mae, y_mape, relative_error
+          f" MAE: {y_mae:.2f}, MAPE: {y_mape:.2f}, APE: {APE:.2f}")
+    return MSE, y_rmse, y_mae, y_mape, APE
 
 
 class MinMaxNormalization(object):
@@ -214,7 +214,7 @@ def compute(y_true, y_pred):
     y_mae = backend.mean(backend.abs(y_true - y_pred))
     idx = (y_true > 10)
     y_mape = backend.mean(backend.abs((y_true[idx] - y_pred[idx]) / y_true[idx]))
-    ape = backend.abs((y_true[idx] - y_pred[idx]) / y_true[idx])
+    ape = backend.sum(backend.abs((y_true[idx] - y_pred[idx]) / y_true[idx]))
     reshaped_y_true = y_true.reshape(-1)
     cell_mean = backend.mean(reshaped_y_true, 0)
     relative_error = y_mae / cell_mean

@@ -46,7 +46,7 @@ def load_data_NY(filename, T=24, nb_flow=2,
         # instance-based dataset --> sequences with format as (X, Y) where X is a sequence of images and Y is an image.
         st = STMatrix(data, timestamps, T, CheckComplete=False)
         _XC, _XP, _XT, _Y, _timestamps_Y = st.create_dataset_3D(len_closeness=len_closeness, len_period=len_period,
-                                                                len_trend=len_trend,prediction_offset=prediction_offset)
+                                                                len_trend=len_trend)
         XC.append(_XC)
         XP.append(_XP)
         XT.append(_XT)
