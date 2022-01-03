@@ -23,6 +23,7 @@
   "pretrain_times": 1,
   "pretrain_way": "random",
   "experiment_name": "TaxiBJ3",
+  "transferModelDir": "./transferModels/TaxiNYC",
   "ext_dim": 28,
   "drop_prob": 0.1,
   "conv_channels": 64,

@@ -1,6 +1,6 @@
-python train.py -c "TaxiNYC6"
-python train.py -c "TaxiNYC7"
-python train.py -c "TaxiNYC8"
-python train.py -c "TaxiNYC9"
-python train.py -c "TaxiNYC10"
+python transferTrain.py -c "TaxiNYC6"
+python transferTrain.py -c "TaxiNYC7"
+python transferTrain.py -c "TaxiNYC8"
+python transferTrain.py -c "TaxiNYC9"
+python transferTrain.py -c "TaxiNYC10"
 

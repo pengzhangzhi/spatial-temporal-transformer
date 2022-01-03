@@ -18,6 +18,7 @@
   "m_factor_2": 1,
   "dataset": "TaxiNYC",
   "prediction_offset": 0,
+  "transferModelDir": "./transferModels/TaxiBJ",
   "random_pick": false,
   "pretrain_epochs": 600,
   "pretrain_times": 1,
