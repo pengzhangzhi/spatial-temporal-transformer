@@ -222,11 +222,14 @@ def loadTransferModelParam(path,model):
                         "ext_module", "to_patch_embedding",
                         "pos_embedding", "mlp_head",
                          ]
+    print("discard the following parameters:")
+    print(DeletableParamKey)
     for key in list(modelParamDict.keys()):
         if containDeletableKey(key, DeletableParamKey):
-            # print(key)
+            print(key)
             modelParamDict.pop(key)
     model.load_state_dict(modelParamDict, strict=False)
+    print("load model parameters dict successfully!")
     return model
 
 def compute(y_true, y_pred):
