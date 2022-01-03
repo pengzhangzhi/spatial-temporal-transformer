@@ -201,6 +201,34 @@ class MinMaxNormalization(object):
 #     y_mape = np.mean(np.abs((y_true[idx]-y_pred[idx])/y_true[idx]))
 #     return y_rmse, y_mae, y_mape
 
+
+def containDeletableKey(key, DeletableParamKey):
+    for deletableKey in DeletableParamKey:
+        if deletableKey in key:
+            return True
+    return False
+
+
+def loadTransferModelParam(path,model):
+    """
+
+    :param path: loaded parameters path
+    :param model:
+    :return:
+    """
+    modelParamDict = torch.load(path)
+    DeletableParamKey = [
+                        "Rc", "ilayer", "mlp_head",
+                        "ext_module", "to_patch_embedding",
+                        "pos_embedding", "mlp_head",
+                         ]
+    for key in list(modelParamDict.keys()):
+        if containDeletableKey(key, DeletableParamKey):
+            # print(key)
+            modelParamDict.pop(key)
+    model.load_state_dict(modelParamDict, strict=False)
+    return model
+
 def compute(y_true, y_pred):
     """
     support computing Error metrics on two data type, torch.Tensor and np.ndarray.
