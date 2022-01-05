@@ -287,8 +287,9 @@ def pretrain(args, ):
             if early_stop(val_rmse, model):
                 print("early stop~")
                 break
-    if os.path.exists(model_checkpoint_path):
-        model.load_state_dict(torch.load(model_checkpoint_path))  # load best model
+    if os.path.exists(args.transferModelDir):
+        print("load pre-trained model.")
+        model.load_state_dict(torch.load(args.transferModelDir),False)  # load best model
     train(args, model, experiment_path)
 
 
