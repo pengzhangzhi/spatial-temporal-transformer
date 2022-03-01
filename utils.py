@@ -10,7 +10,7 @@ import h5py
 import time
 import pickle
 import sys
-
+import time
 import torch
 from einops import rearrange
 from tqdm import tqdm
@@ -224,6 +224,7 @@ def compute(y_true, y_pred):
 
 
 def remove_incomplete_days(data, timestamps, T=48):
+    print("T",T)
     # remove a certain day which has not 48 timestamps
     days = []  # available days: some day only contain some seqs
     days_incomplete = []
@@ -267,7 +268,7 @@ def string2timestamp(strings, T=48):
     time_per_slot = 24.0 / T
     num_per_T = T // 24
     for t in strings:
-        year, month, day, slot = int(t[:4]), int(t[4:6]), int(t[6:8]), int(t[8:]) - 1
+        year, month, day, slot = int(t[:4]), int(t[4:6]), int(t[6:8]), int(t[8:]) 
         timestamps.append(pd.Timestamp(datetime(year, month, day, hour=int(slot * time_per_slot),
                                                 minute=(slot % num_per_T) * int(60.0 * time_per_slot))))
 
@@ -430,6 +431,54 @@ class STMatrix(object):
         Y = np.asarray(Y)
         print("3D matrix - XC shape: ", XC.shape, "XP shape: ", XP.shape, "XT shape: ", XT.shape, "Y shape:", Y.shape)
         return XC, XP, XT, Y, timestamps_Y
+
+def timestamp2array(timestamps, T):
+    """
+    把时间戳的序列中的每一个时间戳转成特征数组，考虑了星期和小时，
+    时间戳: numpy.datetime64('2013-07-01T00:00:00.000000000')
+
+    Args:
+        timestamps: 时间戳序列
+        t: 一天有多少个时间步
+
+    Returns:
+        np.ndarray: 特征数组，shape: (len(timestamps), ext_dim)
+    """
+    # print("timestamps: ", timestamps)
+    temp = []
+    for t in timestamps:
+        t = t.astype(np.str)
+        temp.append(np.datetime64(datetime(int(t[:4]),int(t[4:6]),int((t[6:8])),int((t[8:])))))
+    timestamps = np.array(temp)
+    vec_wday = [time.strptime(
+        str(t)[:10], '%Y-%m-%d').tm_wday for t in timestamps]
+    vec_hour = [time.strptime(str(t)[11:13], '%H').tm_hour for t in timestamps]
+    vec_minu = [time.strptime(str(t)[14:16], '%M').tm_min for t in timestamps]
+    ret = []
+    for idx, wday in enumerate(vec_wday):
+        # day
+        v = [0 for _ in range(7)]
+        v[wday] = 1
+        if wday >= 5:  # 0是周一, 6是周日
+            v.append(0)  # weekend
+        else:
+            v.append(1)  # weekday len(v)=8
+        # hour
+        v += [0 for _ in range(T)]  # len(v)=8+T
+        hour = vec_hour[idx]
+        minu = vec_minu[idx]
+        # 24*60/T 表示一个时间步是多少分钟
+        # hour * 60 + minu 是从0:0开始到现在是多少分钟，相除计算是第几个时间步
+        # print(hour, minu, T, (hour * 60 + minu) / (24 * 60 / T))
+        v[int((hour * 60 + minu) / (24 * 60 / T))] = 1
+        # +8是因为v前边有表示星期的8位
+        if hour >= 18 or hour < 6:
+            v.append(0)  # night
+        else:
+            v.append(1)  # day
+        ret.append(v)  # len(v)=7+1+T+1=T+9
+    return np.asarray(ret)
+
 
 
 def timestamp2vec(timestamps):

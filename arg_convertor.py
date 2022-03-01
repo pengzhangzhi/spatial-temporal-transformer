@@ -13,7 +13,7 @@
 @Desc：
 =================================================='''
 import json
-
+import os
 import torch
 
 
@@ -106,7 +106,9 @@ def convert_TaxiBJ(c=4, t=1, depth=2, pretrain_epoch=600, sp=True, pretrain_way_
         close_mlp_dim = 512
         trend_mlp_dim = 512
 
-    arg_class2json(arg, f"config\{config_name}.json")
+    path = os.path.join("config",f"{config_name}.json")
+    arg_class2json(arg, path)
+    print("done!")
 
 
 def convert_BikeNYC(c=6, t=2,
@@ -120,7 +122,7 @@ def convert_BikeNYC(c=6, t=2,
         batch_size = 128
         lr = 0.001
         lrf = 0.01
-        epochs = 1000
+        epochs = 800
         device = "cuda"
         consider_external_info = True
         len_closeness = c
@@ -129,8 +131,8 @@ def convert_BikeNYC(c=6, t=2,
         T = 24
         nb_flow = 2
         days_test = 10
-        map_height = 16
-        map_width = 8
+        map_height = 20
+        map_width = 10
         m_factor = 1
         m_factor_2 = 1
         # m_factor = 1.2570787221094177
@@ -145,7 +147,7 @@ def convert_BikeNYC(c=6, t=2,
 
         experiment_name = config_name
 
-        ext_dim = 24
+        ext_dim = 33
         drop_prob = 0.1
         conv_channels = 64
         pre_conv = pc
@@ -162,9 +164,9 @@ def convert_BikeNYC(c=6, t=2,
         trend_head = 2
         close_mlp_dim = 512
         trend_mlp_dim = 512
-
-    arg_class2json(arg, f"config\{config_name}.json")
-
+    path = os.path.join("config",f"{config_name}.json")
+    arg_class2json(arg, path)
+    print("done!")
 
 def convert_TaxiNYC(c=6, t=2,
                     pt=1, pw="random",
@@ -217,7 +219,9 @@ def convert_TaxiNYC(c=6, t=2,
         close_mlp_dim = 512
         trend_mlp_dim = 512
 
-    arg_class2json(arg, f"config\{config_name}.json")
+    path = os.path.join("config",f"{config_name}.json")
+    arg_class2json(arg, path)
+    print("done!")
 
 
 def generate_idx_depth_args():
@@ -282,10 +286,9 @@ def generate_TaxiNYC():
 
 
 if __name__ == '__main__':
-    # convert_BikeNYC()
-    generate_TaxiBJ()
-    generate_TaxiNYC()
-    # convert_TaxiBJ(c=6, t=2, depth=2,
-    #                pretrain_epoch=600,
-    #                pretrain_way_="random", config_name="TaxiBJ",
-    #                pretrain_times_=1)
+    convert_BikeNYC(c=6, t=2,
+                    pt=1, pw="random",
+                    pc=True, sp=True, sc=True,
+                    depth=2,
+                    ps=10,
+                    config_name="BikeNYC", )

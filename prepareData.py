@@ -16,7 +16,6 @@ import argparse
 
 from help_funcs import read_config
 from prepareDataBJ import load_data_BJ
-from prepareDataBikeNYC import load_data_TaxiNYC
 from prepareDataNY import load_data_NY
 from utils import *
 from copy import copy

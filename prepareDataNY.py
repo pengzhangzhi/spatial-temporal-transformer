@@ -23,12 +23,17 @@ def load_data_NY(filename, T=24, nb_flow=2,
     filepath = os.path.join(dir, 'data','BikeNYC',filename)
     # load data
     data, timestamps = load_stdata(filepath)
+    print("*"*10)
+    print(timestamps)
     # remove a certain day which does not have 48 timestamps
     data, timestamps = remove_incomplete_days(data, timestamps, T)
     data = data[:, :nb_flow]
     data[data < 0] = 0.
     data_all = [data]
     timestamps_all = [timestamps]
+    print("*"*10)
+    print(data_all.shape)
+    print(timestamps_all.shape)
     # minmax_scale
     data_train = data[:-len_test]
     print('train_data shape: ', data_train.shape)
@@ -504,7 +509,8 @@ def load_data_taxiNYC(T=24, nb_flow=2, len_closeness=None, len_period=None, len_
             datapath, 'TaxiNYC', 'NYC{}_Taxi_M16x8_T60_InOut.h5'.format(year))
         print("file name: ", fname)
         data, timestamps = load_stdata(fname)
-        # print(timestamps)
+        # interface.
+        print(timestamps)
         # remove a certain day which does not have 48 timestamps
         data, timestamps = remove_incomplete_days_taxiNYC(data, timestamps, T)
         data = data[:, :nb_flow]

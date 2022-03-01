@@ -33,7 +33,7 @@ def load(args,pretrain=False):
 
     # generate model path(name) based on the dataset
     if dataset == "BikeNYC":
-        filename = f'NYC_offset%d_c%d_p%d_t%d_{ext}' % (prediction_offset, len_closeness, len_period, len_trend)
+        filename = f'BikeNYC_offset%d_c%d_p%d_t%d_{ext}' % (prediction_offset, len_closeness, len_period, len_trend)
 
     elif dataset == "TaxiBJ":
         filename = f'TaxiBJ_offset%d_c%d_p%d_t%d_{ext}' % (
