@@ -168,6 +168,118 @@ def convert_BikeNYC(c=6, t=2,
     arg_class2json(arg, path)
     print("done!")
 
+
+def convert_BikeDC(c=6, t=2,
+                    pt=0, pw="random",
+                    pc=True, sp=True, sc=True,
+                    depth=2,
+                    ps=4,
+                    config_name="BikeDC", ):
+    class arg:
+        split = 0.1
+        batch_size = 128
+        lr = 0.001
+        lrf = 0.01
+        epochs = 800
+        device = "cuda"
+        consider_external_info = True
+        len_closeness = c
+        len_period = 0
+        len_trend = t
+        T = 48
+        nb_flow = 2
+        days_test = 28
+        map_height = 32
+        map_width = 16
+        m_factor = 1
+        m_factor_2 = 1
+        dataset = "BikeDC"
+        prediction_offset = 0
+
+        random_pick = False
+        pretrain_epochs = 600
+        pretrain_times = pt
+        pretrain_way = pw
+
+        experiment_name = config_name
+
+        ext_dim = 57
+        drop_prob = 0.1
+        conv_channels = 64
+        pre_conv = pc
+        seq_pool = False
+        shortcut = sc
+        patch_size = ps
+        close_channels = len_closeness * nb_flow
+        trend_channels = len_trend * nb_flow
+        close_dim = 128
+        trend_dim = 128
+        close_depth = depth
+        trend_depth = depth
+        close_head = 2
+        trend_head = 2
+        close_mlp_dim = 512
+        trend_mlp_dim = 512
+    path = os.path.join("config",f"{config_name}.json")
+    arg_class2json(arg, path)
+    print("done!")
+    
+def convert_BikeCHI(c=6, t=2,
+                    pt=0, pw="random",
+                    pc=True, sp=True, sc=True,
+                    depth=2,
+                    ps=4,
+                    config_name="BikeCHI", ):
+    class arg:
+        split = 0.1
+        batch_size = 128
+        lr = 0.001
+        lrf = 0.01
+        epochs = 800
+        device = "cuda"
+        consider_external_info = True
+        len_closeness = c
+        len_period = 0
+        len_trend = t
+        T = 48
+        nb_flow = 2
+        days_test = 28
+        map_height = 30
+        map_width = 36
+        m_factor = 1
+        m_factor_2 = 1
+        dataset = "BikeCHI"
+        prediction_offset = 0
+
+        random_pick = False
+        pretrain_epochs = 600
+        pretrain_times = pt
+        pretrain_way = pw
+
+        experiment_name = config_name
+
+        ext_dim = 57
+        drop_prob = 0.1
+        conv_channels = 64
+        pre_conv = pc
+        seq_pool = False
+        shortcut = sc
+        patch_size = ps
+        close_channels = len_closeness * nb_flow
+        trend_channels = len_trend * nb_flow
+        close_dim = 128
+        trend_dim = 128
+        close_depth = depth
+        trend_depth = depth
+        close_head = 2
+        trend_head = 2
+        close_mlp_dim = 512
+        trend_mlp_dim = 512
+    path = os.path.join("config",f"{config_name}.json")
+    arg_class2json(arg, path)
+    print("done!")
+    
+    
 def convert_TaxiNYC(c=6, t=2,
                     pt=1, pw="random",
                     pc=True, sp=True, sc=True,
@@ -292,3 +404,7 @@ if __name__ == '__main__':
                     depth=2,
                     ps=10,
                     config_name="BikeNYC", )
+    convert_BikeDC(c=4,t=2,pt=0,config_name="BikeNYC_c4_t2")
+    convert_BikeDC(c=6,t=4,pt=0,config_name="BikeNYC_c6_t4")
+    convert_BikeDC(c=10,t=2,pt=0,config_name="BikeNYC_c10_t2")
+    convert_BikeCHI()

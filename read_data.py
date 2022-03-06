@@ -32,21 +32,23 @@ def load(args,pretrain=False):
 
 
     # generate model path(name) based on the dataset
-    if dataset == "BikeNYC":
-        filename = f'BikeNYC_offset%d_c%d_p%d_t%d_{ext}' % (prediction_offset, len_closeness, len_period, len_trend)
+    # if dataset == "BikeNYC":
+    #     filename = f'BikeNYC_offset%d_c%d_p%d_t%d_{ext}' % (prediction_offset, len_closeness, len_period, len_trend)
 
-    elif dataset == "TaxiBJ":
-        filename = f'TaxiBJ_offset%d_c%d_p%d_t%d_{ext}' % (
+    # elif dataset == "TaxiBJ":
+    #     filename = f'TaxiBJ_offset%d_c%d_p%d_t%d_{ext}' % (
+    #         prediction_offset, len_closeness, len_period, len_trend)
+    filename = f'{dataset}_offset%d_c%d_p%d_t%d_{ext}' % (
             prediction_offset, len_closeness, len_period, len_trend)
 
 
-    elif dataset == "TaxiNYC":
-        # TODO: add  TaxiNYC dataset (preprocessing, and training) DONE!
-        filename = f'TaxiNYC_offset%d_c%d_p%d_t%d_{ext}' % \
-                   (prediction_offset, len_closeness, len_period, len_trend)
+    # elif dataset == "TaxiNYC":
+    #     # TODO: add  TaxiNYC dataset (preprocessing, and training) DONE!
+    #     filename = f'TaxiNYC_offset%d_c%d_p%d_t%d_{ext}' % \
+    #                (prediction_offset, len_closeness, len_period, len_trend)
 
-    else:
-        raise ValueError(f"Invalid dataset {dataset}. Only support BikeNYC, TaxiBJ ,and TaxiNYC.")
+    # else:
+    #     raise ValueError(f"Invalid dataset {dataset}. Only support BikeNYC, TaxiBJ ,and TaxiNYC.")
 
     filename = os.path.join(dir, "data", f'{dataset}', filename)
     print('dataset filename:', filename)

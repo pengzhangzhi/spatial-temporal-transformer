@@ -89,7 +89,7 @@ def load_meteorol(timeslots, fname):
     # print('meger shape:', merge_data.shape)
     return merge_data
 
-def load_data_BikeNYC(T=24, nb_flow=2,
+def load_data_BikeNYC(T=24, nb_flow=2,dataset="BikeNYC",
                       len_closeness=None, len_period=None, len_trend=None,
                       len_test=None, meta_data=True, holiday_data=True, meteorol_data=True,prediction_offset=0):
     assert (len_closeness + len_period + len_trend > 0)
@@ -99,7 +99,7 @@ def load_data_BikeNYC(T=24, nb_flow=2,
     data_all = []
     timestamps_all = list()
 
-    data_dir = os.path.join(dir, 'data','BikeNYC')
+    data_dir = os.path.join(dir, 'data',dataset)
     print("file name: ", data_dir)
     data, timestamps = load_data(data_dir)
     
@@ -109,8 +109,10 @@ def load_data_BikeNYC(T=24, nb_flow=2,
     print("timestamps: ", timestamps)
     print('train_data shape: ', data.shape)
     # data, timestamps = remove_incomplete_days(data, timestamps, T)
-    data = data[:, :nb_flow]
+    # data = data[:, :nb_flow]
     data[data < 0] = 0.
+    if data.shape[-1] == 2: # the last dimension is NumOfFlow 
+        data = rearrange(data,"L H W N -> L N H W")
     data_all.append(data)
     timestamps_all.append(timestamps)
     print("\n")
@@ -120,11 +122,11 @@ def load_data_BikeNYC(T=24, nb_flow=2,
     mmn = MinMaxNormalization()
     mmn.fit(data_train)
     data_all_mmn = [mmn.transform(d) for d in data_all]
-
     XC, XP, XT = [], [], []
     Y = []
     timestamps_Y = []
     for data, timestamps in zip(data_all_mmn, timestamps_all):
+        print("data: ", data.shape)
         # instance-based dataset --> sequences with format as (X, Y) where X is
         # a sequence of images and Y is an image.
         st = STMatrix(data, timestamps, T, CheckComplete=False)
@@ -202,19 +204,20 @@ def generate_BikeNYC_dataset(config):
     len_closeness = config["len_closeness"]
     len_period = config["len_period"]
     len_trend = config["len_trend"]
+    dataset = config["dataset"]
     T = int(config['T'])  # number of time intervals in one day
     consider_external_info = bool(config['consider_external_info'])
     days_test = int(config[ 'days_test'])
     ext = "ext" if consider_external_info else "noext"
     len_test = T * days_test
     X_train, Y_train, X_test, Y_test, mmn, metadata_dim, timestamp_train, timestamp_test \
-        = load_data_BikeNYC(T=24, nb_flow=2,
+        = load_data_BikeNYC(T=T, nb_flow=2,dataset=dataset,
                       len_closeness=len_closeness, len_period=len_period, len_trend=len_trend,
                       len_test=28*24, meta_data=consider_external_info, holiday_data=consider_external_info, 
                       meteorol_data=consider_external_info,prediction_offset=prediction_offset)
     
-    filename = os.path.join(dir, 'data', 'BikeNYC',
-                            f'BikeNYC_offset%d_c%d_p%d_t%d_{ext}' % (
+    filename = os.path.join(dir, 'data', f'{dataset}',
+                            f'{dataset}_offset%d_c%d_p%d_t%d_{ext}' % (
                                 prediction_offset, len_closeness, len_period, len_trend))
     print('filename:', filename)
     f = open(filename, 'wb')
@@ -231,7 +234,7 @@ def generate_BikeNYC_dataset(config):
     
 if __name__ == '__main__':
     argparser = argparse.ArgumentParser("generate BikeNYC Dataset")
-    argparser.add_argument("-c","--config-name",type=str,default="BikeNYC")
+    argparser.add_argument("-c","--config-name",type=str,default="BikeDC")
     opt = argparser.parse_args()
     config_name = opt.config_name
     training_config = read_config(config_name=config_name)
