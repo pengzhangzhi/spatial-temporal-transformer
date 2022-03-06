@@ -1,20 +1,14 @@
 '''=================================================
-
 @Project -> File：ST-Transformer->STTransformer
-
 @IDE：PyCharm
-
 @coding: utf-8
-
 @time:2021/7/23 17:01
-
 @author:Pengzhangzhi
-
 @Desc：
 =================================================='''
 import os
 import sys
-
+from einops import rearrange,repeat
 import torch
 import torch.nn as nn
 from einops import rearrange, reduce
@@ -66,6 +60,28 @@ class iLayer(nn.Module):
         return x * self.weights
 
 
+class ExtComponent(nn.Module):
+    def __init__(self,ext_dim=28, out_dim=2048):
+        """
+        external component to process holiday and 天气 feature.
+        default arugments is for taxibj.
+        :param ext_dim:
+        :param out_dim:
+        """
+
+        super(ExtComponent, self).__init__()
+        self.fc1 = nn.Linear(ext_dim, 10)
+        self.relu = nn.ReLU()
+        self.fc2 = nn.Linear(10,out_dim)
+
+    def forward(self,x_ext):
+        out = self.fc1(x_ext)
+        out = self.relu(out)
+        out = self.fc2(out)
+        out = self.relu(out)
+        return out
+
+
 class STTransformer(nn.Module):
     def __init__(self, map_height=32, map_width=32, patch_size=4,
                  close_channels=6, trend_channels=6, close_dim=1024, trend_dim=1024,
@@ -77,9 +93,9 @@ class STTransformer(nn.Module):
                  conv_channels=64,
                  drop_prob=0.1,
                  conv3d=False,
+                 ext_dim=28,
                  **kwargs):
         """
-
         :param seq_pool: whether to use sequence pooling.
         :param pre_conv: whether to use pre-conv
         :param conv_channels: number of channels inside pre_conv.
@@ -159,13 +175,13 @@ class STTransformer(nn.Module):
             self.Rc_Xt = Rc(input_shape)
             # self.Rc_conv_Xc = Rc(input_shape)
             # self.Rc_conv_Xt = Rc(input_shape)
-
+        self.ext_module = ExtComponent(ext_dim,nb_flow*map_height*map_width)
+        print("External Module",self.ext_module)
         self.close_ilayer = iLayer(input_shape=input_shape)
         self.trend_ilayer = iLayer(input_shape=input_shape)
 
     def forward(self, xc, xt, x_ext=None):
         """
-
         :param xc: batch size, num_close,map_height,map_width
         :param xt: batch size, num_week,map_height,map_width
         :return:
@@ -198,6 +214,14 @@ class STTransformer(nn.Module):
             # +self.Rc_conv_Xc(xc_conv)+self.Rc_conv_Xt(xt_conv)
             out += shortcut_out
 
+        if x_ext is not None:
+            out_ext = self.ext_module(x_ext)
+            # out_ext = repeat(out_ext,"b d -> b c d",c=2)
+            out_ext = rearrange(out_ext,"b (c h w) -> b c h w",c=self.nb_flow,h=self.map_height,w=self.map_width)
+            # out_ext = self.ext_ilayer(out_ext)
+            out += out_ext
+
+
         if not self.training:
             out = out.relu()
 
@@ -206,7 +230,6 @@ class STTransformer(nn.Module):
 
 def create_model(arg):
     """
-
     :param arg: arg class.
     :return:
     """
@@ -216,8 +239,7 @@ def create_model(arg):
     # num_close,map_height,map_width
     xc_shape = (arg.close_channels, arg.map_height, arg.map_width)
     xt_shape = (arg.trend_channels, arg.map_height, arg.map_width)
-
-    summary(model.to(device), [xc_shape, xt_shape])
+    summary(model.to(device), [xc_shape, xt_shape,])
     return model.to(device)
 
 
