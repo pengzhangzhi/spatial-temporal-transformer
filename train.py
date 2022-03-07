@@ -27,7 +27,7 @@ from STTransformer import create_model
 from help_funcs import read_config_class, split_dataset, make_experiment_dir, save_train_history, save_test_results, \
     Logger, print_run_time, EarlyStop
 from read_data import load
-from utils import train_one_epoch, evaluate, test, running_platform, running_window
+from utils import reproducibility, train_one_epoch, evaluate, test, running_platform, running_window
 
 
 def make_pretrain_path(args):
@@ -190,7 +190,7 @@ def train(args, model=None, experiment_path=None):
         scheduler.step()
 
         # validate
-        val_loss, val_rmse = evaluate(model=model,
+        val_loss, val_rmse,val_ape = evaluate(model=model,
                                       data_loader=val_loader,
                                       device=device,
                                       epoch=epoch)
@@ -211,7 +211,7 @@ def train(args, model=None, experiment_path=None):
 
         save_test_results(test_results, experiment_path)
 
-        if early_stop(val_rmse, model):
+        if early_stop(val_ape, model):
             print("early_stop")
             break
 
@@ -265,7 +265,7 @@ def pretrain(args, ):
             scheduler.step()
 
             # validate
-            val_loss, val_rmse = evaluate(model=model,
+            val_loss, val_rmse,val_ape = evaluate(model=model,
                                           data_loader=val_loader,
                                           device=device,
                                           epoch=epoch)
@@ -284,7 +284,7 @@ def pretrain(args, ):
 
             save_test_results(test_results, pretrain_dir)
 
-            if early_stop(val_rmse, model):
+            if early_stop(val_ape, model):
                 print("early stop~")
                 break
     if os.path.exists(model_checkpoint_path):
@@ -293,6 +293,7 @@ def pretrain(args, ):
 
 
 if __name__ == '__main__':
+    reproducibility(seed=666)
     parser = argparse.ArgumentParser()
     parser.add_argument("-c", '--config-name', type=str, default="TaxiBJ")
     parser.add_argument("-e", '--exp-name', type=str)

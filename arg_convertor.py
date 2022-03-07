@@ -180,7 +180,7 @@ def convert_BikeDC(c=6, t=2,
         batch_size = 128
         lr = 0.001
         lrf = 0.01
-        epochs = 800
+        epochs = 620
         device = "cuda"
         consider_external_info = True
         len_closeness = c
@@ -404,7 +404,8 @@ if __name__ == '__main__':
                     depth=2,
                     ps=10,
                     config_name="BikeNYC", )
-    convert_BikeDC(c=4,t=2,pt=0,config_name="BikeNYC_c4_t2")
-    convert_BikeDC(c=6,t=4,pt=0,config_name="BikeNYC_c6_t4")
-    convert_BikeDC(c=10,t=2,pt=0,config_name="BikeNYC_c10_t2")
+    convert_BikeDC(c=4,t=2,pt=0,config_name="BikeDC_c4_t2")
+    convert_BikeDC(c=6,t=4,pt=0,config_name="BikeDC_c6_t4")
+    convert_BikeDC(c=10,t=4,pt=0,config_name="BikeDC_c10_t4")
+    convert_BikeDC(c=6,t=2,pt=0,config_name="BikeDC_c6_t2")
     convert_BikeCHI()

@@ -14,8 +14,17 @@ import time
 import torch
 from einops import rearrange
 from tqdm import tqdm
-
+import random
 from help_funcs import print_run_time
+
+
+def reproducibility(seed=666):
+    torch.manual_seed(seed)            # 为CPU设置随机种子
+    torch.cuda.manual_seed(seed)       # 为当前GPU设置随机种子
+    torch.cuda.manual_seed_all(seed)   # 为所有GPU设置随机种子
+    random.seed(seed)
+    np.random.seed(seed)
+    print("random seed is fixed to: ",seed)
 
 def running_window():
     return "windows" in running_platform()
@@ -108,7 +117,7 @@ def evaluate(model, data_loader, device, epoch):
 
     accu_loss = 0.0  # 累计损失
     accu_rmse = 0.0  # 累计rmse
-
+    accu_ape = 0.0
     sample_num = 0
     data_loader = tqdm(data_loader)
     for step, data in enumerate(data_loader):
@@ -123,11 +132,13 @@ def evaluate(model, data_loader, device, epoch):
         batch_rmse = avg_rmse * len(y)
         accu_loss += batch_mse
         accu_rmse += batch_rmse
+        y_rmse, y_mae, y_mape, APE = compute(y, pred)
+        accu_ape += APE
         data_loader.desc = "[val epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}".format(epoch,
                                                                                  avg_mse,
                                                                                  avg_rmse)
         sample_num += len(y)
-    return accu_loss / sample_num, accu_rmse / sample_num
+    return accu_loss / sample_num, accu_rmse / sample_num, accu_ape / sample_num
 
 
 @torch.no_grad()
