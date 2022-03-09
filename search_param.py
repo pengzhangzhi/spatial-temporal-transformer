@@ -22,7 +22,7 @@ def objective(trial):
         args = read_config_class("arg")
         args.lr = trial.suggest_float("lr", 0.005, 0.01, log=True)
         args.batch_size = trial.suggest_categorical("batch_size",[32,62,128,256,512])
-        args.epochs = trial.suggest_int("epochs",500,700,50)
+        
         args.conv_channels = trial.suggest_int("conv_channels",32,256,32)
         args.patch_size = trial.suggest_categorical("patch_size",[2,4,8,16])
         args.close_dim = trial.suggest_categorical("close_dim",[128,64,32,256])
@@ -44,7 +44,8 @@ def objective(trial):
     
 
         optimizer, scheduler = get_optim(model, args)
-        for epoch in range(1):
+        error = 0.0
+        for epoch in range(args.epochs):
             # train
             train_loss, train_rmse = train_one_epoch(model=model,
                                                     optimizer=optimizer,
@@ -62,7 +63,7 @@ def objective(trial):
                                         epoch=epoch)
 
             # print("val:", val_loss, val_rmse)
-
+            error = val_rmse
             # results = [train_loss, train_rmse, val_loss, val_rmse, optimizer.param_groups[0]["lr"]]
 
             
@@ -72,13 +73,13 @@ def objective(trial):
     except Exception as e:
         print(e)
     # print("Val_RMSE:",val_rmse,type(val_rmse))
-    return val_rmse
+    return error
 
 
 if __name__ == '__main__':
     reproducibility()
     study = optuna.create_study(direction="minimize",sampler=optuna.samplers.TPESampler())
-    study.optimize(objective, n_trials=50, timeout=3600)
+    study.optimize(objective, n_trials=50)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
