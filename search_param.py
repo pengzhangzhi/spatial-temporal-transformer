@@ -1,4 +1,6 @@
 
+import logging
+import sys
 import optuna
 from optuna.trial import TrialState
 from utils import evaluate
@@ -65,6 +67,7 @@ def objective(trial):
             # print("val:", val_loss, val_rmse)
             error = val_rmse
             # results = [train_loss, train_rmse, val_loss, val_rmse, optimizer.param_groups[0]["lr"]]
+            trial.report(error, epoch)
 
             
         if trial.should_prune():
@@ -78,7 +81,9 @@ def objective(trial):
 
 if __name__ == '__main__':
     reproducibility()
-    study = optuna.create_study(direction="minimize",sampler=optuna.samplers.TPESampler())
+    # Add stream handler of stdout to show the messages
+    optuna.logging.get_logger("optuna").addHandler(logging.StreamHandler(sys.stdout))
+    study = optuna.create_study(direction="minimize",sampler=optuna.samplers.TPESampler(),pruner=optuna.pruners.MedianPruner())
     study.optimize(objective, n_trials=200,n_jobs=-1)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
