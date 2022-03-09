@@ -10,7 +10,7 @@ import torch.utils.data
 from STTransformer import create_model
 from help_funcs import EarlyStop, print_run_time, read_config_class
 from train import get_loaders, get_optim
-
+import matplotlib.pyplot as plt
 from utils import reproducibility, train_one_epoch
 
 
@@ -36,7 +36,7 @@ def objective(trial):
         device = args.device
 
 
-        # save print info to log.txt
+        # savefig print info to log.txt
 
         train_loader, val_loader, test_loader = get_loaders(args)
 
@@ -79,7 +79,7 @@ def objective(trial):
 if __name__ == '__main__':
     reproducibility()
     study = optuna.create_study(direction="minimize",sampler=optuna.samplers.TPESampler())
-    study.optimize(objective, n_trials=50)
+    study.optimize(objective, n_trials=200,n_jobs=-1)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
@@ -97,3 +97,29 @@ if __name__ == '__main__':
     print("  Params: ")
     for key, value in trial.params.items():
         print("    {}: {}".format(key, value))
+    
+    
+    if optuna.visualization.is_available:
+        optuna.visualization.plot_contour(study)
+        plt.savefig("plot_contour.pdf")
+        optuna.visualization.plot_edf(study)
+        
+        optuna.visualization.plot_optimization_history(study)
+        plt.savefig("plot_optimization_history.pdf")
+        
+        optuna.visualization.plot_parallel_coordinate(study)
+        plt.savefig("plot_parallel_coordinate.pdf")
+        
+        optuna.visualization.plot_param_importances(study)
+        plt.savefig("plot_param_importances.pdf")
+        
+        optuna.visualization.plot_pareto_front(study)
+        plt.savefig("plot_pareto_front.pdf")
+        
+        optuna.visualization.plot_slice(study)
+        plt.savefig("plot_slice.pdf")
+        
+        
+        
+
+    
