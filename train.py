@@ -266,7 +266,8 @@ def train(args, model=None, experiment_path=None):
     model.load_state_dict(torch.load(model_path))
     test_results = test(model=model, data_loader=test_loader, device=device, args=args)
     result_path = os.path.join(experiment_path, "result")
-    os.makedirs(result_path)
+    if not os.path.exists(result_path):
+        os.makedirs(result_path)
     save_test_results(test_results, result_path)
 
     result = str(y_rmse)
@@ -348,7 +349,8 @@ def pretrain(
                 break
     if os.path.exists(model_checkpoint_path):
         model.load_state_dict(torch.load(model_checkpoint_path))  # load best model
-    return train(args, model, experiment_path)
+    training_result = train(args, model, experiment_path)
+    return training_result
 
 
 if __name__ == "__main__":
@@ -368,7 +370,7 @@ if __name__ == "__main__":
     args = read_config_class(config_name=config_name)
     args.experiment_name = exp_name if exp_name else args.experiment_name
     args.pretrain_times = (
-        opt.pretrain_times if opt.pretrain_times is not -1 else args.pretrain_times
+        opt.pretrain_times if opt.pretrain_times != -1 else args.pretrain_times
     )
     args.pretrain_epochs = (
         opt.pretrain_epochs if opt.pretrain_epochs else args.pretrain_epochs

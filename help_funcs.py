@@ -254,10 +254,10 @@ def save_results(test_rmse, test_mae, test_mape, experiment_path):
 def print_run_time(func):
     def wrapper(*args, **kw):
         local_time = time.time()
-        func(*args, **kw)
+        ret = func(*args, **kw)
         duration = (time.time() - local_time) / 60
         print("run time is %.2f min" % duration)
-
+        return ret
     return wrapper
 
 
