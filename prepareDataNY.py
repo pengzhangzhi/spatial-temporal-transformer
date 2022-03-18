@@ -13,30 +13,37 @@ from utils import *
 from copy import copy
 
 
-def load_data_NY(filename, T=24, nb_flow=2,
-                 len_closeness=None, len_period=None,
-                 len_trend=None, len_test=None, meta_data=True,
-                 prediction_offset=0):
-    assert (len_closeness + len_period + len_trend > 0)
+def load_data_NY(
+    filename,
+    T=24,
+    nb_flow=2,
+    len_closeness=None,
+    len_period=None,
+    len_trend=None,
+    len_test=None,
+    meta_data=True,
+    prediction_offset=0,
+):
+    assert len_closeness + len_period + len_trend > 0
     dir = os.getcwd()
-    print('print dir:', dir)
-    filepath = os.path.join(dir, 'data','BikeNYC',filename)
+    print("print dir:", dir)
+    filepath = os.path.join(dir, "data", "BikeNYC", filename)
     # load data
     data, timestamps = load_stdata(filepath)
-    print("*"*10)
+    print("*" * 10)
     print(timestamps)
     # remove a certain day which does not have 48 timestamps
     data, timestamps = remove_incomplete_days(data, timestamps, T)
     data = data[:, :nb_flow]
-    data[data < 0] = 0.
+    data[data < 0] = 0.0
     data_all = [data]
     timestamps_all = [timestamps]
-    print("*"*10)
+    print("*" * 10)
     print(data_all.shape)
     print(timestamps_all.shape)
     # minmax_scale
     data_train = data[:-len_test]
-    print('train_data shape: ', data_train.shape)
+    print("train_data shape: ", data_train.shape)
     mmn = MinMaxNormalization()
     mmn.fit(data_train)
     data_all_mmn = []
@@ -50,8 +57,9 @@ def load_data_NY(filename, T=24, nb_flow=2,
     for data, timestamps in zip(data_all_mmn, timestamps_all):
         # instance-based dataset --> sequences with format as (X, Y) where X is a sequence of images and Y is an image.
         st = STMatrix(data, timestamps, T, CheckComplete=False)
-        _XC, _XP, _XT, _Y, _timestamps_Y = st.create_dataset_3D(len_closeness=len_closeness, len_period=len_period,
-                                                                len_trend=len_trend)
+        _XC, _XP, _XT, _Y, _timestamps_Y = st.create_dataset_3D(
+            len_closeness=len_closeness, len_period=len_period, len_trend=len_trend
+        )
         XC.append(_XC)
         XP.append(_XP)
         XT.append(_XT)
@@ -62,38 +70,82 @@ def load_data_NY(filename, T=24, nb_flow=2,
     XP = np.vstack(XP)
     XT = np.vstack(XT)
     Y = np.vstack(Y)
-    print("XC shape: ", XC.shape, "XP shape: ", XP.shape, "XT shape: ", XT.shape, "Y shape:", Y.shape)
-    XC_train, XP_train, XT_train, Y_train = XC[:-len_test], XP[:-len_test], XT[:-len_test], Y[:-len_test]
-    XC_test, XP_test, XT_test, Y_test = XC[-len_test:], XP[-len_test:], XT[-len_test:], Y[-len_test:]
+    print(
+        "XC shape: ",
+        XC.shape,
+        "XP shape: ",
+        XP.shape,
+        "XT shape: ",
+        XT.shape,
+        "Y shape:",
+        Y.shape,
+    )
+    XC_train, XP_train, XT_train, Y_train = (
+        XC[:-len_test],
+        XP[:-len_test],
+        XT[:-len_test],
+        Y[:-len_test],
+    )
+    XC_test, XP_test, XT_test, Y_test = (
+        XC[-len_test:],
+        XP[-len_test:],
+        XT[-len_test:],
+        Y[-len_test:],
+    )
 
     timestamp_train, timestamp_test = timestamps_Y[:-len_test], timestamps_Y[-len_test:]
     X_train = []
     X_test = []
-    for l, X_ in zip([len_closeness, len_period, len_trend], [XC_train, XP_train, XT_train]):
+    for l, X_ in zip(
+        [len_closeness, len_period, len_trend], [XC_train, XP_train, XT_train]
+    ):
         if l > 0:
             X_train.append(X_)
-    for l, X_ in zip([len_closeness, len_period, len_trend], [XC_test, XP_test, XT_test]):
+    for l, X_ in zip(
+        [len_closeness, len_period, len_trend], [XC_test, XP_test, XT_test]
+    ):
         if l > 0:
             X_test.append(X_)
-    print('train shape:', XC_train.shape, Y_train.shape, 'test shape: ', XC_test.shape, Y_test.shape)
+    print(
+        "train shape:",
+        XC_train.shape,
+        Y_train.shape,
+        "test shape: ",
+        XC_test.shape,
+        Y_test.shape,
+    )
     # load meta feature
     if meta_data:
         meta_feature = timestamp2vec(timestamps_Y)
         metadata_dim = meta_feature.shape[1]
-        meta_feature_train, meta_feature_test = meta_feature[:-len_test], meta_feature[-len_test:]
+        meta_feature_train, meta_feature_test = (
+            meta_feature[:-len_test],
+            meta_feature[-len_test:],
+        )
         X_train.append(meta_feature_train)
         X_test.append(meta_feature_test)
     else:
         metadata_dim = None
     for _X in X_train:
-        print(_X.shape, )
+        print(
+            _X.shape,
+        )
     print()
     for _X in X_test:
-        print(_X.shape, )
+        print(
+            _X.shape,
+        )
     print()
-    return X_train, Y_train, X_test, Y_test, mmn, metadata_dim, timestamp_train, timestamp_test
-
-
+    return (
+        X_train,
+        Y_train,
+        X_test,
+        Y_test,
+        mmn,
+        metadata_dim,
+        timestamp_train,
+        timestamp_test,
+    )
 
 
 def remove_incomplete_days(data, timestamps, T=48):
@@ -149,8 +201,8 @@ def remove_incomplete_days_taxiNYC(data, timestamps, T=24):
 
 
 def load_holiday_taxiNYC(timeslots, datapath):
-    fname = os.path.join(datapath, 'TaxiNYC', 'NY_Holiday.txt')
-    f = open(fname, 'r')
+    fname = os.path.join(datapath, "TaxiNYC", "NY_Holiday.txt")
+    f = open(fname, "r")
     holidays = f.readlines()
     holidays = set([h.strip() for h in holidays])
     H = np.zeros(len(timeslots))
@@ -163,27 +215,27 @@ def load_holiday_taxiNYC(timeslots, datapath):
 
 
 def load_meteorol_taxiNYC(timeslots, datapath):
-    '''
+    """
     timeslots: the predicted timeslots
     In real-world, we dont have the meteorol data in the predicted timeslot, instead,
     we use the meteoral at previous timeslots, i.e., slot = predicted_slot - timeslot (you can use predicted meteorol data as well)
-    '''
+    """
 
     def adjust_timeslots(timeslot):
         timeslot_str = timeslot.decode("utf-8")
         interval = timeslot_str[-2:]
-        new_interval = f'{int(interval)+1:02}'
-        print("new_interval",new_interval)
-        return bytes(timeslot_str[:-2] + new_interval, encoding='utf8')
+        new_interval = f"{int(interval)+1:02}"
+        print("new_interval", new_interval)
+        return bytes(timeslot_str[:-2] + new_interval, encoding="utf8")
 
     timeslots = [adjust_timeslots(t) for t in timeslots]
 
-    fname = os.path.join(datapath, 'TaxiNYC', 'NY_Meteorology.h5')
-    f = h5py.File(fname, 'r')
-    Timeslot = f['date'][:]
-    WindSpeed = f['WindSpeed'][:]
-    Weather = f['Weather'][:]
-    Temperature = f['Temperature'][:]
+    fname = os.path.join(datapath, "TaxiNYC", "NY_Meteorology.h5")
+    f = h5py.File(fname, "r")
+    Timeslot = f["date"][:]
+    WindSpeed = f["WindSpeed"][:]
+    Weather = f["Weather"][:]
+    Temperature = f["Temperature"][:]
     f.close()
 
     M = dict()  # map timeslot to index
@@ -205,8 +257,8 @@ def load_meteorol_taxiNYC(timeslots, datapath):
     TE = np.asarray(TE)
 
     # 0-1 scale
-    WS = 1. * (WS - WS.min()) / (WS.max() - WS.min())
-    TE = 1. * (TE - TE.min()) / (TE.max() - TE.min())
+    WS = 1.0 * (WS - WS.min()) / (WS.max() - WS.min())
+    TE = 1.0 * (TE - TE.min()) / (TE.max() - TE.min())
 
     print("shape: ", WS.shape, WR.shape, TE.shape)
 
@@ -217,29 +269,36 @@ def load_meteorol_taxiNYC(timeslots, datapath):
     return merge_data
 
 
-
 def load_stdata(fname):
     # print('fname:', fname)
-    f = h5py.File(fname, 'r')
-    data = f['data'][:]
-    timestamps = f['date'][:]
+    f = h5py.File(fname, "r")
+    data = f["data"][:]
+    timestamps = f["date"][:]
     f.close()
     return data, timestamps
 
 
-
 def string2timestamp(strings, T=48):
-    '''
+    """
     strings: list, eg. ['2017080912','2017080913']
     return: list, eg. [Timestamp('2017-08-09 05:30:00'), Timestamp('2017-08-09 06:00:00')]
-    '''
+    """
     timestamps = []
     time_per_slot = 24.0 / T
     num_per_T = T // 24
     for t in strings:
         year, month, day, slot = int(t[:4]), int(t[4:6]), int(t[6:8]), int(t[8:]) - 1
-        timestamps.append(pd.Timestamp(datetime(year, month, day, hour=int(slot * time_per_slot),
-                                                minute=(slot % num_per_T) * int(60.0 * time_per_slot))))
+        timestamps.append(
+            pd.Timestamp(
+                datetime(
+                    year,
+                    month,
+                    day,
+                    hour=int(slot * time_per_slot),
+                    minute=(slot % num_per_T) * int(60.0 * time_per_slot),
+                )
+            )
+        )
 
     return timestamps
 
@@ -251,8 +310,17 @@ def string2timestamp_taxiNYC(strings, T=48):
     num_per_T = T // 24
     for t in strings:
         year, month, day, slot = int(t[:4]), int(t[4:6]), int(t[6:8]), int(t[8:])
-        timestamps.append(pd.Timestamp(datetime(year, month, day, hour=int(slot * time_per_slot),
-                                                minute=(slot % num_per_T) * int(60.0 * time_per_slot))))
+        timestamps.append(
+            pd.Timestamp(
+                datetime(
+                    year,
+                    month,
+                    day,
+                    hour=int(slot * time_per_slot),
+                    minute=(slot % num_per_T) * int(60.0 * time_per_slot),
+                )
+            )
+        )
 
     return timestamps
 
@@ -287,7 +355,9 @@ class STMatrix(object):
         i = 1
         while i < len(pd_timestamps):
             if pd_timestamps[i - 1] + offset != pd_timestamps[i]:
-                missing_timestamps.append("(%s -- %s)" % (pd_timestamps[i - 1], pd_timestamps[i]))
+                missing_timestamps.append(
+                    "(%s -- %s)" % (pd_timestamps[i - 1], pd_timestamps[i])
+                )
             i += 1
         for v in missing_timestamps:
             print(v)
@@ -317,24 +387,39 @@ class STMatrix(object):
                 return False
         return True
 
-    def create_dataset_3D(self, len_closeness=3, len_trend=3, TrendInterval=7, len_period=3, PeriodInterval=1):
+    def create_dataset_3D(
+        self,
+        len_closeness=3,
+        len_trend=3,
+        TrendInterval=7,
+        len_period=3,
+        PeriodInterval=1,
+    ):
         offset_frame = pd.DateOffset(minutes=24 * 60 // self.T)
         XC = []
         XP = []
         XT = []
         Y = []
         timestamps_Y = []
-        depends = [range(1, len_closeness + 1),
-                   [PeriodInterval * self.T * j for j in range(1, len_period + 1)],
-                   [TrendInterval * self.T * j for j in range(1, len_trend + 1)]]
+        depends = [
+            range(1, len_closeness + 1),
+            [PeriodInterval * self.T * j for j in range(1, len_period + 1)],
+            [TrendInterval * self.T * j for j in range(1, len_trend + 1)],
+        ]
 
-        i = max(self.T * TrendInterval * len_trend, self.T * PeriodInterval * len_period, len_closeness)
+        i = max(
+            self.T * TrendInterval * len_trend,
+            self.T * PeriodInterval * len_period,
+            len_closeness,
+        )
         while i < len(self.pd_timestamps):
             Flag = True
             for depend in depends:
                 if Flag is False:
                     break
-                Flag = self.check_it([self.pd_timestamps[i] - j * offset_frame for j in depend])
+                Flag = self.check_it(
+                    [self.pd_timestamps[i] - j * offset_frame for j in depend]
+                )
 
             if Flag is False:
                 i += 1
@@ -349,10 +434,14 @@ class STMatrix(object):
             c_2_depends.sort(reverse=True)
             # print('----- c_2_depends:',c_2_depends)
 
-            x_c_1 = [self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame) for j in
-                     c_1_depends]  # [(1,32,32),(1,32,32),(1,32,32)] in
-            x_c_2 = [self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame) for j in
-                     c_2_depends]  # [(1,32,32),(1,32,32),(1,32,32)] out
+            x_c_1 = [
+                self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame)
+                for j in c_1_depends
+            ]  # [(1,32,32),(1,32,32),(1,32,32)] in
+            x_c_2 = [
+                self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame)
+                for j in c_2_depends
+            ]  # [(1,32,32),(1,32,32),(1,32,32)] out
 
             x_c_1_all = np.vstack(x_c_1)  # x_c_1_all.shape  (3, 32, 32)
             x_c_2_all = np.vstack(x_c_2)  # x_c_1_all.shape  (3, 32, 32)
@@ -364,12 +453,18 @@ class STMatrix(object):
 
             # period
             p_depends = list(depends[1])
-            if (len(p_depends) > 0):
+            if len(p_depends) > 0:
                 p_depends.sort(reverse=True)
                 # print('----- p_depends:',p_depends)
 
-                x_p_1 = [self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame) for j in p_depends]
-                x_p_2 = [self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame) for j in p_depends]
+                x_p_1 = [
+                    self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame)
+                    for j in p_depends
+                ]
+                x_p_2 = [
+                    self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame)
+                    for j in p_depends
+                ]
 
                 x_p_1_all = np.vstack(x_p_1)  # [(3,32,32),(3,32,32),...]
                 x_p_2_all = np.vstack(x_p_2)  # [(3,32,32),(3,32,32),...]
@@ -381,11 +476,17 @@ class STMatrix(object):
 
             # trend
             t_depends = list(depends[2])
-            if (len(t_depends) > 0):
+            if len(t_depends) > 0:
                 t_depends.sort(reverse=True)
 
-                x_t_1 = [self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame) for j in t_depends]
-                x_t_2 = [self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame) for j in t_depends]
+                x_t_1 = [
+                    self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame)
+                    for j in t_depends
+                ]
+                x_t_2 = [
+                    self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame)
+                    for j in t_depends
+                ]
 
                 x_t_1_all = np.vstack(x_t_1)  # [(3,32,32),(3,32,32),...]
                 x_t_2_all = np.vstack(x_t_2)  # [(3,32,32),(3,32,32),...]
@@ -411,13 +512,25 @@ class STMatrix(object):
         XP = np.asarray(XP)
         XT = np.asarray(XT)
         Y = np.asarray(Y)
-        print("3D matrix - XC shape: ", XC.shape, "XP shape: ", XP.shape, "XT shape: ", XT.shape, "Y shape:", Y.shape)
+        print(
+            "3D matrix - XC shape: ",
+            XC.shape,
+            "XP shape: ",
+            XP.shape,
+            "XT shape: ",
+            XT.shape,
+            "Y shape:",
+            Y.shape,
+        )
         return XC, XP, XT, Y, timestamps_Y
 
 
 def timestamp2vec(timestamps):
     # tm_wday range [0, 6], Monday is 0
-    vec = [time.strptime(str(t[:8], encoding='utf-8'), '%Y%m%d').tm_wday for t in timestamps]  # python3
+    vec = [
+        time.strptime(str(t[:8], encoding="utf-8"), "%Y%m%d").tm_wday
+        for t in timestamps
+    ]  # python3
     ret = []
     for i in vec:
         v = [0 for _ in range(7)]
@@ -431,8 +544,8 @@ def timestamp2vec(timestamps):
 
 
 def load_holiday(timeslots, datapath):
-    fname = os.path.join(datapath, 'TaxiBJ', 'BJ_Holiday.txt')
-    f = open(fname, 'r')
+    fname = os.path.join(datapath, "TaxiBJ", "BJ_Holiday.txt")
+    f = open(fname, "r")
     holidays = f.readlines()
     holidays = set([h.strip() for h in holidays])
     H = np.zeros(len(timeslots))
@@ -444,20 +557,17 @@ def load_holiday(timeslots, datapath):
     return H[:, None]
 
 
-
-
-
 def load_meteorol(timeslots, datapath):
-    '''
+    """
     timeslots: the predicted timeslots
     In real-world, we dont have the meteorol data in the predicted timeslot, instead, we use the meteoral at previous timeslots, i.e., slot = predicted_slot - timeslot (you can use predicted meteorol data as well)
-    '''
-    fname = os.path.join(datapath, 'TaxiBJ', 'BJ_Meteorology.h5')
-    f = h5py.File(fname, 'r')
-    Timeslot = f['date'][:]
-    WindSpeed = f['WindSpeed'][:]
-    Weather = f['Weather'][:]
-    Temperature = f['Temperature'][:]
+    """
+    fname = os.path.join(datapath, "TaxiBJ", "BJ_Meteorology.h5")
+    f = h5py.File(fname, "r")
+    Timeslot = f["date"][:]
+    WindSpeed = f["WindSpeed"][:]
+    Weather = f["Weather"][:]
+    Temperature = f["Temperature"][:]
     f.close()
 
     M = dict()  # map timeslot to index
@@ -479,8 +589,8 @@ def load_meteorol(timeslots, datapath):
     TE = np.asarray(TE)
 
     # 0-1 scale
-    WS = 1. * (WS - WS.min()) / (WS.max() - WS.min())
-    TE = 1. * (TE - TE.min()) / (TE.max() - TE.min())
+    WS = 1.0 * (WS - WS.min()) / (WS.max() - WS.min())
+    TE = 1.0 * (TE - TE.min()) / (TE.max() - TE.min())
 
     print("shape: ", WS.shape, WR.shape, TE.shape)
 
@@ -491,22 +601,32 @@ def load_meteorol(timeslots, datapath):
     return merge_data
 
 
-def load_data_taxiNYC(T=24, nb_flow=2, len_closeness=None, len_period=None, len_trend=None,
-                      len_test=None, meta_data=True, meteorol_data=False, holiday_data=False,prediction_offset=0,
-                      datapath=None):
-    """
-    """
-    assert (len_closeness + len_period + len_trend > 0)
+def load_data_taxiNYC(
+    T=24,
+    nb_flow=2,
+    len_closeness=None,
+    len_period=None,
+    len_trend=None,
+    len_test=None,
+    meta_data=True,
+    meteorol_data=False,
+    holiday_data=False,
+    prediction_offset=0,
+    datapath=None,
+):
+    """ """
+    assert len_closeness + len_period + len_trend > 0
     # load data
     # 10 - 14
     data_all = []
     timestamps_all = list()
     dir = os.getcwd()
-    print('print dir:', dir)
-    datapath = os.path.join(dir, 'data')
+    print("print dir:", dir)
+    datapath = os.path.join(dir, "data")
     for year in range(10, 15):
         fname = os.path.join(
-            datapath, 'TaxiNYC', 'NYC{}_Taxi_M16x8_T60_InOut.h5'.format(year))
+            datapath, "TaxiNYC", "NYC{}_Taxi_M16x8_T60_InOut.h5".format(year)
+        )
         print("file name: ", fname)
         data, timestamps = load_stdata(fname)
         # interface.
@@ -514,7 +634,7 @@ def load_data_taxiNYC(T=24, nb_flow=2, len_closeness=None, len_period=None, len_
         # remove a certain day which does not have 48 timestamps
         data, timestamps = remove_incomplete_days_taxiNYC(data, timestamps, T)
         data = data[:, :nb_flow]
-        data[data < 0] = 0.
+        data[data < 0] = 0.0
         data_all.append(data)
         timestamps_all.append(timestamps)
         print("\n")
@@ -522,7 +642,7 @@ def load_data_taxiNYC(T=24, nb_flow=2, len_closeness=None, len_period=None, len_
     # minmax_scale
     data_train = np.vstack(copy(data_all))[:-len_test]
 
-    print('train_data shape: ', data_train.shape)
+    print("train_data shape: ", data_train.shape)
     mmn = MinMaxNormalization()
     mmn.fit(data_train)
     data_all_mmn = [mmn.transform(d) for d in data_all]
@@ -533,8 +653,9 @@ def load_data_taxiNYC(T=24, nb_flow=2, len_closeness=None, len_period=None, len_
     for data, timestamps in zip(data_all_mmn, timestamps_all):
         # instance-based dataset --> sequences with format as (X, Y) where X is a sequence of images and Y is an image.
         st = STMatrix(data, timestamps, T, CheckComplete=False, Hours0_23=True)
-        _XC, _XP, _XT, _Y, _timestamps_Y = st.create_dataset_3D(len_closeness=len_closeness, len_period=len_period,
-                                                                len_trend=len_trend)
+        _XC, _XP, _XT, _Y, _timestamps_Y = st.create_dataset_3D(
+            len_closeness=len_closeness, len_period=len_period, len_trend=len_trend
+        )
         XC.append(_XC)
         XP.append(_XP)
         XT.append(_XT)
@@ -545,20 +666,50 @@ def load_data_taxiNYC(T=24, nb_flow=2, len_closeness=None, len_period=None, len_
     XP = np.vstack(XP)
     XT = np.vstack(XT)
     Y = np.vstack(Y)
-    print("XC shape: ", XC.shape, "XP shape: ", XP.shape, "XT shape: ", XT.shape, "Y shape:", Y.shape)
-    XC_train, XP_train, XT_train, Y_train = XC[:-len_test], XP[:-len_test], XT[:-len_test], Y[:-len_test]
-    XC_test, XP_test, XT_test, Y_test = XC[-len_test:], XP[-len_test:], XT[-len_test:], Y[-len_test:]
+    print(
+        "XC shape: ",
+        XC.shape,
+        "XP shape: ",
+        XP.shape,
+        "XT shape: ",
+        XT.shape,
+        "Y shape:",
+        Y.shape,
+    )
+    XC_train, XP_train, XT_train, Y_train = (
+        XC[:-len_test],
+        XP[:-len_test],
+        XT[:-len_test],
+        Y[:-len_test],
+    )
+    XC_test, XP_test, XT_test, Y_test = (
+        XC[-len_test:],
+        XP[-len_test:],
+        XT[-len_test:],
+        Y[-len_test:],
+    )
 
     timestamp_train, timestamp_test = timestamps_Y[:-len_test], timestamps_Y[-len_test:]
     X_train = []
     X_test = []
-    for l, X_ in zip([len_closeness, len_period, len_trend], [XC_train, XP_train, XT_train]):
+    for l, X_ in zip(
+        [len_closeness, len_period, len_trend], [XC_train, XP_train, XT_train]
+    ):
         if l > 0:
             X_train.append(X_)
-    for l, X_ in zip([len_closeness, len_period, len_trend], [XC_test, XP_test, XT_test]):
+    for l, X_ in zip(
+        [len_closeness, len_period, len_trend], [XC_test, XP_test, XT_test]
+    ):
         if l > 0:
             X_test.append(X_)
-    print('train shape:', XC_train.shape, Y_train.shape, 'test shape: ', XC_test.shape, Y_test.shape)
+    print(
+        "train shape:",
+        XC_train.shape,
+        Y_train.shape,
+        "test shape: ",
+        XC_test.shape,
+        Y_test.shape,
+    )
     # load meta feature
     meta_feature = []
     if meta_data:
@@ -573,58 +724,97 @@ def load_data_taxiNYC(T=24, nb_flow=2, len_closeness=None, len_period=None, len_
             meteorol_feature = load_meteorol_taxiNYC(timestamps_Y, datapath)
             meta_feature.append(meteorol_feature)
 
-        meta_feature = np.hstack(meta_feature) if len(
-            meta_feature) > 0 else np.asarray(meta_feature)
-        metadata_dim = meta_feature.shape[1] if len(
-            meta_feature.shape) > 1 else None
+        meta_feature = (
+            np.hstack(meta_feature)
+            if len(meta_feature) > 0
+            else np.asarray(meta_feature)
+        )
+        metadata_dim = meta_feature.shape[1] if len(meta_feature.shape) > 1 else None
         metadata_dim = meta_feature.shape[1]
-        meta_feature_train, meta_feature_test = meta_feature[:-len_test], meta_feature[-len_test:]
+        meta_feature_train, meta_feature_test = (
+            meta_feature[:-len_test],
+            meta_feature[-len_test:],
+        )
         X_train.append(meta_feature_train)
         X_test.append(meta_feature_test)
     else:
         metadata_dim = None
     for _X in X_train:
-        print(_X.shape, )
+        print(
+            _X.shape,
+        )
     print()
     for _X in X_test:
-        print(_X.shape, )
+        print(
+            _X.shape,
+        )
     print()
-    return X_train, Y_train, X_test, Y_test, mmn, metadata_dim, timestamp_train, timestamp_test
+    return (
+        X_train,
+        Y_train,
+        X_test,
+        Y_test,
+        mmn,
+        metadata_dim,
+        timestamp_train,
+        timestamp_test,
+    )
 
 
 def generate_TaxiNYC(config_name):
     dir = os.getcwd()
     # read config file
     training_config = read_config(config_name=config_name)
-    consider_external_info = bool(training_config['consider_external_info'])
-    len_closeness = int(training_config['len_closeness'])
-    len_period = int(training_config['len_period'])
-    len_trend = int(training_config['len_trend'])
-    T = int(training_config['T'])  # number of time intervals in one day
-    nb_flow = int(training_config['nb_flow'])  # there are two types of flows: new-flow and end-flow
-    days_test = int(training_config[
-                        'days_test'])  # 7*4 divide data into two subsets: Train & Test, of which the test set is the last 4 weeks
-    map_height = int(training_config['map_height'])  # grid size
-    map_width = int(training_config['map_width'])  # grid size
+    consider_external_info = bool(training_config["consider_external_info"])
+    len_closeness = int(training_config["len_closeness"])
+    len_period = int(training_config["len_period"])
+    len_trend = int(training_config["len_trend"])
+    T = int(training_config["T"])  # number of time intervals in one day
+    nb_flow = int(
+        training_config["nb_flow"]
+    )  # there are two types of flows: new-flow and end-flow
+    days_test = int(
+        training_config["days_test"]
+    )  # 7*4 divide data into two subsets: Train & Test, of which the test set is the last 4 weeks
+    map_height = int(training_config["map_height"])  # grid size
+    map_width = int(training_config["map_width"])  # grid size
     len_test = T * days_test
-    dataset = str(training_config['dataset'])
-    prediction_offset = int(training_config['prediction_offset'])
+    dataset = str(training_config["dataset"])
+    prediction_offset = int(training_config["prediction_offset"])
     ext = "ext" if consider_external_info else "noext"
     random_pick = "_random_pick" if bool(training_config["random_pick"]) else ""
-    filename = os.path.join(dir, 'data', 'TaxiNYC',
-                            f'TaxiNYC_offset%d_c%d_p%d_t%d_{ext}' % (
-                                prediction_offset, len_closeness, len_period, len_trend))
+    filename = os.path.join(
+        dir,
+        "data",
+        "TaxiNYC",
+        f"TaxiNYC_offset%d_c%d_p%d_t%d_{ext}"
+        % (prediction_offset, len_closeness, len_period, len_trend),
+    )
 
-    X_train, Y_train, X_test, Y_test, mmn, external_dim, timestamp_train, timestamp_test = \
-        load_data_taxiNYC(T=T, nb_flow=nb_flow, len_closeness=len_closeness, len_period=len_period,
-                          len_trend=len_trend,
-                          len_test=len_test, meta_data=consider_external_info,
-                          holiday_data=consider_external_info,
-                          meteorol_data=consider_external_info,
-                          prediction_offset=prediction_offset)
+    (
+        X_train,
+        Y_train,
+        X_test,
+        Y_test,
+        mmn,
+        external_dim,
+        timestamp_train,
+        timestamp_test,
+    ) = load_data_taxiNYC(
+        T=T,
+        nb_flow=nb_flow,
+        len_closeness=len_closeness,
+        len_period=len_period,
+        len_trend=len_trend,
+        len_test=len_test,
+        meta_data=consider_external_info,
+        holiday_data=consider_external_info,
+        meteorol_data=consider_external_info,
+        prediction_offset=prediction_offset,
+    )
 
-    print('filename:', filename)
-    f = open(filename, 'wb')
+    print("filename:", filename)
+    f = open(filename, "wb")
     pickle.dump(X_train, f)
     pickle.dump(Y_train, f)
     pickle.dump(X_test, f)
@@ -635,14 +825,10 @@ def generate_TaxiNYC(config_name):
     pickle.dump(timestamp_test, f)
     f.close()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     argparser = argparse.ArgumentParser("generate TaxiNYC Dataset")
-    argparser.add_argument("-c","--config-name",type=str,default="arg")
+    argparser.add_argument("-c", "--config-name", type=str, default="arg")
     opt = argparser.parse_args()
     config_name = opt.config_name
     generate_TaxiNYC(config_name)
-
-
-
-
-

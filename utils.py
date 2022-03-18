@@ -19,16 +19,16 @@ from help_funcs import print_run_time
 
 
 def reproducibility(seed=666):
-    torch.manual_seed(seed)            # 为CPU设置随机种子
-    torch.cuda.manual_seed(seed)       # 为当前GPU设置随机种子
-    torch.cuda.manual_seed_all(seed)   # 为所有GPU设置随机种子
+    torch.manual_seed(seed)  # 为CPU设置随机种子
+    torch.cuda.manual_seed(seed)  # 为当前GPU设置随机种子
+    torch.cuda.manual_seed_all(seed)  # 为所有GPU设置随机种子
     random.seed(seed)
     np.random.seed(seed)
-    print("random seed is fixed to: ",seed)
+    print("random seed is fixed to: ", seed)
+
 
 def running_window():
     return "windows" in running_platform()
-
 
 
 def running_platform():
@@ -36,12 +36,12 @@ def running_platform():
 
 
 def write_pickle(list_info: list, file_name: str):
-    with open(file_name, 'wb') as f:
+    with open(file_name, "wb") as f:
         pickle.dump(list_info, f)
 
 
 def read_pickle(file_name: str) -> list:
-    with open(file_name, 'rb') as f:
+    with open(file_name, "rb") as f:
         info_list = pickle.load(f)
         return info_list
 
@@ -64,7 +64,12 @@ def pretrain_shuffle(xc, xt, x_ext, y):
     data[-1] = data[idx]
     data[idx] = temp_y
     chunk_len = [len(xc), len(xt), 1]
-    xc, xt, y = list(map(lambda x: rearrange(x, "l b n h w ->  b n l h w"), list(torch.split(data, chunk_len))))
+    xc, xt, y = list(
+        map(
+            lambda x: rearrange(x, "l b n h w ->  b n l h w"),
+            list(torch.split(data, chunk_len)),
+        )
+    )
     y = rearrange(y, "b n l h w -> b n h w")
     # renormalize y
     return xc, xt, x_ext, y
@@ -91,19 +96,19 @@ def train_one_epoch(model, optimizer, data_loader, device, epoch):
         optimizer.step()
 
         avg_mse = loss.item()
-        avg_rmse = avg_mse ** 0.5
+        avg_rmse = avg_mse**0.5
         batch_mse = avg_mse * len(y)
         batch_rmse = avg_rmse * len(y)
         accu_loss += batch_mse
         accu_rmse += batch_rmse
 
         sample_num += len(y)
-        data_loader.desc = "[train epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}".format(epoch,
-                                                                                   avg_mse,
-                                                                                   avg_rmse)
+        data_loader.desc = "[train epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}".format(
+            epoch, avg_mse, avg_rmse
+        )
 
         if not torch.isfinite(loss):
-            print('WARNING: non-finite loss, ending training ', loss)
+            print("WARNING: non-finite loss, ending training ", loss)
             sys.exit(1)
 
     return accu_loss / sample_num, accu_rmse / sample_num
@@ -127,24 +132,25 @@ def evaluate(model, data_loader, device, epoch):
         pred = model(xc, xt, x_ext)
         loss = loss_function(pred, y)
         avg_mse = loss.item()
-        avg_rmse = avg_mse ** 0.5
+        avg_rmse = avg_mse**0.5
         batch_mse = avg_mse * len(y)
         batch_rmse = avg_rmse * len(y)
         accu_loss += batch_mse
         accu_rmse += batch_rmse
         y_rmse, y_mae, y_mape, APE = compute(y, pred)
         accu_ape += APE
-        data_loader.desc = "[val epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}".format(epoch,
-                                                                                 avg_mse,
-                                                                                 avg_rmse)
+        data_loader.desc = "[val epoch {}] MSELoss: {:.3f}, RMSE: {:.3f}".format(
+            epoch, avg_mse, avg_rmse
+        )
         sample_num += len(y)
     return accu_loss / sample_num, accu_rmse / sample_num, accu_ape / sample_num
 
 
 @torch.no_grad()
 def test(model, data_loader, device, args):
-    assert data_loader.batch_size == len(data_loader.dataset), \
-        f"{data_loader.batch_size}！= {len(data_loader.dataset)}"
+    assert data_loader.batch_size == len(
+        data_loader.dataset
+    ), f"{data_loader.batch_size}！= {len(data_loader.dataset)}"
 
     loss_function = torch.nn.MSELoss()
 
@@ -160,16 +166,18 @@ def test(model, data_loader, device, args):
     loss = loss_function(pred, y)
     MSE = loss.item()
     y_rmse, y_mae, y_mape, APE = compute(y, pred)
-    print(f"[Test] MSE: {MSE:.2f}, RMSE(real): {y_rmse * args.m_factor:.2f},"
-          f" MAE: {y_mae:.2f}, MAPE: {y_mape:.2f}, APE: {APE:.2f}")
+    print(
+        f"[Test] MSE: {MSE:.2f}, RMSE(real): {y_rmse * args.m_factor:.2f},"
+        f" MAE: {y_mae:.2f}, MAPE: {y_mape:.2f}, APE: {APE:.2f}"
+    )
     return MSE, y_rmse, y_mae, y_mape, APE
 
 
 class MinMaxNormalization(object):
-    '''MinMax Normalization --> [-1, 1]
-       x = (x - min) / (max - min).
-       x = x * 2 - 1
-    '''
+    """MinMax Normalization --> [-1, 1]
+    x = (x - min) / (max - min).
+    x = x * 2 - 1
+    """
 
     def __init__(self):
         pass
@@ -180,8 +188,8 @@ class MinMaxNormalization(object):
         print("min:", self._min, "max:", self._max)
 
     def transform(self, X):
-        X = 1. * (X - self._min) / (self._max - self._min)
-        X = X * 2. - 1.
+        X = 1.0 * (X - self._min) / (self._max - self._min)
+        X = X * 2.0 - 1.0
         return X
 
     def fit_transform(self, X):
@@ -189,8 +197,8 @@ class MinMaxNormalization(object):
         return self.transform(X)
 
     def inverse_transform(self, X):
-        X = (X + 1.) / 2.
-        X = 1. * X * (self._max - self._min) + self._min
+        X = (X + 1.0) / 2.0
+        X = 1.0 * X * (self._max - self._min) + self._min
         return X
 
 
@@ -212,6 +220,7 @@ class MinMaxNormalization(object):
 #     y_mape = np.mean(np.abs((y_true[idx]-y_pred[idx])/y_true[idx]))
 #     return y_rmse, y_mae, y_mape
 
+
 def compute(y_true, y_pred):
     """
     support computing Error metrics on two data type, torch.Tensor and np.ndarray.
@@ -221,9 +230,9 @@ def compute(y_true, y_pred):
     elif isinstance(y_true, np.ndarray) and isinstance(y_pred, np.ndarray):
         backend = np
     y_mse = backend.mean((y_true - y_pred) ** 2)
-    y_rmse = y_mse ** 0.5
+    y_rmse = y_mse**0.5
     y_mae = backend.mean(backend.abs(y_true - y_pred))
-    idx = (y_true > 10)
+    idx = y_true > 10
     y_mape = backend.mean(backend.abs((y_true[idx] - y_pred[idx]) / y_true[idx]))
     ape = backend.sum(backend.abs((y_true[idx] - y_pred[idx]) / y_true[idx]))
     reshaped_y_true = y_true.reshape(-1)
@@ -235,7 +244,7 @@ def compute(y_true, y_pred):
 
 
 def remove_incomplete_days(data, timestamps, T=48):
-    print("T",T)
+    print("T", T)
     # remove a certain day which has not 48 timestamps
     days = []  # available days: some day only contain some seqs
     days_incomplete = []
@@ -263,25 +272,34 @@ def remove_incomplete_days(data, timestamps, T=48):
 
 def load_stdata(fname):
     # print('fname:', fname)
-    f = h5py.File(fname, 'r')
-    data = f['data'][:]
-    timestamps = f['date'][:]
+    f = h5py.File(fname, "r")
+    data = f["data"][:]
+    timestamps = f["date"][:]
     f.close()
     return data, timestamps
 
 
 def string2timestamp(strings, T=48):
-    '''
+    """
     strings: list, eg. ['2017080912','2017080913']
     return: list, eg. [Timestamp('2017-08-09 05:30:00'), Timestamp('2017-08-09 06:00:00')]
-    '''
+    """
     timestamps = []
     time_per_slot = 24.0 / T
     num_per_T = T // 24
     for t in strings:
-        year, month, day, slot = int(t[:4]), int(t[4:6]), int(t[6:8]), int(t[8:]) 
-        timestamps.append(pd.Timestamp(datetime(year, month, day, hour=int(slot * time_per_slot),
-                                                minute=(slot % num_per_T) * int(60.0 * time_per_slot))))
+        year, month, day, slot = int(t[:4]), int(t[4:6]), int(t[6:8]), int(t[8:])
+        timestamps.append(
+            pd.Timestamp(
+                datetime(
+                    year,
+                    month,
+                    day,
+                    hour=int(slot * time_per_slot),
+                    minute=(slot % num_per_T) * int(60.0 * time_per_slot),
+                )
+            )
+        )
 
     return timestamps
 
@@ -315,7 +333,9 @@ class STMatrix(object):
         i = 1
         while i < len(pd_timestamps):
             if pd_timestamps[i - 1] + offset != pd_timestamps[i]:
-                missing_timestamps.append("(%s -- %s)" % (pd_timestamps[i - 1], pd_timestamps[i]))
+                missing_timestamps.append(
+                    "(%s -- %s)" % (pd_timestamps[i - 1], pd_timestamps[i])
+                )
             i += 1
         for v in missing_timestamps:
             print(v)
@@ -345,25 +365,40 @@ class STMatrix(object):
                 return False
         return True
 
-    def create_dataset_3D(self, len_closeness=3, len_trend=3, TrendInterval=7, len_period=3, PeriodInterval=1,
-                          prediction_offset=0):
+    def create_dataset_3D(
+        self,
+        len_closeness=3,
+        len_trend=3,
+        TrendInterval=7,
+        len_period=3,
+        PeriodInterval=1,
+        prediction_offset=0,
+    ):
         offset_frame = pd.DateOffset(minutes=24 * 60 // self.T)
         XC = []
         XP = []
         XT = []
         Y = []
         timestamps_Y = []
-        depends = [range(1, len_closeness + 1),
-                   [PeriodInterval * self.T * j for j in range(1, len_period + 1)],
-                   [TrendInterval * self.T * j for j in range(1, len_trend + 1)]]
+        depends = [
+            range(1, len_closeness + 1),
+            [PeriodInterval * self.T * j for j in range(1, len_period + 1)],
+            [TrendInterval * self.T * j for j in range(1, len_trend + 1)],
+        ]
 
-        i = max(self.T * TrendInterval * len_trend, self.T * PeriodInterval * len_period, len_closeness)
+        i = max(
+            self.T * TrendInterval * len_trend,
+            self.T * PeriodInterval * len_period,
+            len_closeness,
+        )
         while i < len(self.pd_timestamps):
             Flag = True
             for depend in depends:
                 if Flag is False:
                     break
-                Flag = self.check_it([self.pd_timestamps[i] - j * offset_frame for j in depend])
+                Flag = self.check_it(
+                    [self.pd_timestamps[i] - j * offset_frame for j in depend]
+                )
 
             if Flag is False:
                 i += 1
@@ -378,10 +413,14 @@ class STMatrix(object):
             c_2_depends.sort(reverse=True)
             # print('----- c_2_depends:',c_2_depends)
 
-            x_c_1 = [self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame) for j in
-                     c_1_depends]  # [(1,32,32),(1,32,32),(1,32,32)] in
-            x_c_2 = [self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame) for j in
-                     c_2_depends]  # [(1,32,32),(1,32,32),(1,32,32)] out
+            x_c_1 = [
+                self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame)
+                for j in c_1_depends
+            ]  # [(1,32,32),(1,32,32),(1,32,32)] in
+            x_c_2 = [
+                self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame)
+                for j in c_2_depends
+            ]  # [(1,32,32),(1,32,32),(1,32,32)] out
 
             x_c_1_all = np.vstack(x_c_1)  # x_c_1_all.shape  (3, 32, 32)
             x_c_2_all = np.vstack(x_c_2)  # x_c_1_all.shape  (3, 32, 32)
@@ -393,12 +432,18 @@ class STMatrix(object):
 
             # period
             p_depends = list(depends[1])
-            if (len(p_depends) > 0):
+            if len(p_depends) > 0:
                 p_depends.sort(reverse=True)
                 # print('----- p_depends:',p_depends)
 
-                x_p_1 = [self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame) for j in p_depends]
-                x_p_2 = [self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame) for j in p_depends]
+                x_p_1 = [
+                    self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame)
+                    for j in p_depends
+                ]
+                x_p_2 = [
+                    self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame)
+                    for j in p_depends
+                ]
 
                 x_p_1_all = np.vstack(x_p_1)  # [(3,32,32),(3,32,32),...]
                 x_p_2_all = np.vstack(x_p_2)  # [(3,32,32),(3,32,32),...]
@@ -410,11 +455,17 @@ class STMatrix(object):
 
             # trend
             t_depends = list(depends[2])
-            if (len(t_depends) > 0):
+            if len(t_depends) > 0:
                 t_depends.sort(reverse=True)
 
-                x_t_1 = [self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame) for j in t_depends]
-                x_t_2 = [self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame) for j in t_depends]
+                x_t_1 = [
+                    self.get_matrix_1(self.pd_timestamps[i] - j * offset_frame)
+                    for j in t_depends
+                ]
+                x_t_2 = [
+                    self.get_matrix_2(self.pd_timestamps[i] - j * offset_frame)
+                    for j in t_depends
+                ]
 
                 x_t_1_all = np.vstack(x_t_1)  # [(3,32,32),(3,32,32),...]
                 x_t_2_all = np.vstack(x_t_2)  # [(3,32,32),(3,32,32),...]
@@ -440,8 +491,18 @@ class STMatrix(object):
         XP = np.asarray(XP)
         XT = np.asarray(XT)
         Y = np.asarray(Y)
-        print("3D matrix - XC shape: ", XC.shape, "XP shape: ", XP.shape, "XT shape: ", XT.shape, "Y shape:", Y.shape)
+        print(
+            "3D matrix - XC shape: ",
+            XC.shape,
+            "XP shape: ",
+            XP.shape,
+            "XT shape: ",
+            XT.shape,
+            "Y shape:",
+            Y.shape,
+        )
         return XC, XP, XT, Y, timestamps_Y
+
 
 def timestamp2array(timestamps, T):
     """
@@ -459,12 +520,15 @@ def timestamp2array(timestamps, T):
     temp = []
     for t in timestamps:
         t = t.astype(np.str)
-        temp.append(np.datetime64(datetime(int(t[:4]),int(t[4:6]),int((t[6:8])),int((t[8:])))))
+        temp.append(
+            np.datetime64(
+                datetime(int(t[:4]), int(t[4:6]), int((t[6:8])), int((t[8:])))
+            )
+        )
     timestamps = np.array(temp)
-    vec_wday = [time.strptime(
-        str(t)[:10], '%Y-%m-%d').tm_wday for t in timestamps]
-    vec_hour = [time.strptime(str(t)[11:13], '%H').tm_hour for t in timestamps]
-    vec_minu = [time.strptime(str(t)[14:16], '%M').tm_min for t in timestamps]
+    vec_wday = [time.strptime(str(t)[:10], "%Y-%m-%d").tm_wday for t in timestamps]
+    vec_hour = [time.strptime(str(t)[11:13], "%H").tm_hour for t in timestamps]
+    vec_minu = [time.strptime(str(t)[14:16], "%M").tm_min for t in timestamps]
     ret = []
     for idx, wday in enumerate(vec_wday):
         # day
@@ -491,10 +555,12 @@ def timestamp2array(timestamps, T):
     return np.asarray(ret)
 
 
-
 def timestamp2vec(timestamps):
     # tm_wday range [0, 6], Monday is 0
-    vec = [time.strptime(str(t[:8], encoding='utf-8'), '%Y%m%d').tm_wday for t in timestamps]  # python3
+    vec = [
+        time.strptime(str(t[:8], encoding="utf-8"), "%Y%m%d").tm_wday
+        for t in timestamps
+    ]  # python3
     ret = []
     for i in vec:
         v = [0 for _ in range(7)]

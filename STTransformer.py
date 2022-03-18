@@ -1,14 +1,14 @@
-'''=================================================
+"""=================================================
 @Project -> File：ST-Transformer->STTransformer
 @IDE：PyCharm
 @coding: utf-8
 @time:2021/7/23 17:01
 @author:Pengzhangzhi
 @Desc：
-=================================================='''
+=================================================="""
 import os
 import sys
-from einops import rearrange,repeat
+from einops import rearrange, repeat
 import torch
 import torch.nn as nn
 from einops import rearrange, reduce
@@ -28,8 +28,8 @@ class Rc(nn.Module):
 
     def forward(self, x):
         """
-            x: (*, c, h, w)
-          out: (*, 2, h ,w)
+          x: (*, c, h, w)
+        out: (*, 2, h ,w)
         """
         # x = rearrange(x,"b (nb_flow c) h w -> b nb_flow c h w",nb_flow=self.nb_flow)
         # x = reduce(x,"b nb_flow c h w -> b nb_flow h w","sum")
@@ -39,29 +39,30 @@ class Rc(nn.Module):
 
 
 class iLayer(nn.Module):
-    '''    elementwise multiplication
-    '''
+    """elementwise multiplication"""
 
     def __init__(self, input_shape):
-        '''
+        """
         input_shape: (,*,c,,h,w)
         self.weights shape: (,*,c,h,w)
-        '''
+        """
         super(iLayer, self).__init__()
-        self.weights = nn.Parameter(torch.randn(*input_shape))  # define the trainable parameter
+        self.weights = nn.Parameter(
+            torch.randn(*input_shape)
+        )  # define the trainable parameter
         init.xavier_uniform_(self.weights.data)
 
     def forward(self, x):
-        '''
+        """
         x: (batch, c, h,w)
         self.weights shape: (c,h,w)
         output: (batch, c, h,w)
-        '''
+        """
         return x * self.weights
 
 
 class ExtComponent(nn.Module):
-    def __init__(self,ext_dim=28, out_dim=2048):
+    def __init__(self, ext_dim=28, out_dim=2048):
         """
         external component to process holiday and 天气 feature.
         default arugments is for taxibj.
@@ -72,9 +73,9 @@ class ExtComponent(nn.Module):
         super(ExtComponent, self).__init__()
         self.fc1 = nn.Linear(ext_dim, 10)
         self.relu = nn.ReLU()
-        self.fc2 = nn.Linear(10,out_dim)
+        self.fc2 = nn.Linear(10, out_dim)
 
-    def forward(self,x_ext):
+    def forward(self, x_ext):
         out = self.fc1(x_ext)
         out = self.relu(out)
         out = self.fc2(out)
@@ -83,18 +84,31 @@ class ExtComponent(nn.Module):
 
 
 class STTransformer(nn.Module):
-    def __init__(self, map_height=32, map_width=32, patch_size=4,
-                 close_channels=6, trend_channels=6, close_dim=1024, trend_dim=1024,
-                 close_depth=4, trend_depth=4, close_head=2,
-                 trend_head=2, close_mlp_dim=2048, trend_mlp_dim=2048, nb_flow=2,
-                 seq_pool=True,
-                 pre_conv=True,
-                 shortcut=True,
-                 conv_channels=64,
-                 drop_prob=0.1,
-                 conv3d=False,
-                 ext_dim=28,
-                 **kwargs):
+    def __init__(
+        self,
+        map_height=32,
+        map_width=32,
+        patch_size=4,
+        close_channels=6,
+        trend_channels=6,
+        close_dim=1024,
+        trend_dim=1024,
+        close_depth=4,
+        trend_depth=4,
+        close_head=2,
+        trend_head=2,
+        close_mlp_dim=2048,
+        trend_mlp_dim=2048,
+        nb_flow=2,
+        seq_pool=True,
+        pre_conv=True,
+        shortcut=True,
+        conv_channels=64,
+        drop_prob=0.1,
+        conv3d=False,
+        ext_dim=28,
+        **kwargs
+    ):
         """
         :param seq_pool: whether to use sequence pooling.
         :param pre_conv: whether to use pre-conv
@@ -126,15 +140,14 @@ class STTransformer(nn.Module):
         self.pre_conv = pre_conv
         self.conv3d = conv3d
         if pre_conv:
-                self.pre_close_conv = nn.Sequential(
-                    BasicBlock(inplanes=close_channels, planes=conv_channels),
-                    # BasicBlock(inplanes=close_channels,planes=conv_channels),
-                )
-                self.pre_trend_conv = nn.Sequential(
-                    BasicBlock(inplanes=trend_channels, planes=conv_channels),
-                    # BasicBlock(inplanes=trend_channels,planes=conv_channels)
-                )
-
+            self.pre_close_conv = nn.Sequential(
+                BasicBlock(inplanes=close_channels, planes=conv_channels),
+                # BasicBlock(inplanes=close_channels,planes=conv_channels),
+            )
+            self.pre_trend_conv = nn.Sequential(
+                BasicBlock(inplanes=trend_channels, planes=conv_channels),
+                # BasicBlock(inplanes=trend_channels,planes=conv_channels)
+            )
 
         # close_channels, trend_channels = nb_flow * close_channels, nb_flow * trend_channels
 
@@ -150,7 +163,7 @@ class STTransformer(nn.Module):
             emb_dropout=drop_prob,
             channels=close_channels,
             dim_head=close_dim_head,
-            seq_pool=seq_pool
+            seq_pool=seq_pool,
         )
         self.trend_transformer = ViT(
             image_size=[map_height, map_width],
@@ -165,7 +178,6 @@ class STTransformer(nn.Module):
             channels=trend_channels,
             dim_head=trend_dim_head,
             seq_pool=seq_pool,
-
         )
         input_shape = (nb_flow, map_height, map_width)
 
@@ -175,8 +187,9 @@ class STTransformer(nn.Module):
             self.Rc_Xt = Rc(input_shape)
             # self.Rc_conv_Xc = Rc(input_shape)
             # self.Rc_conv_Xt = Rc(input_shape)
-        self.ext_module = ExtComponent(ext_dim,nb_flow*map_height*map_width)
-        print("External Module",self.ext_module)
+        if ext_dim != 0:
+            self.ext_module = ExtComponent(ext_dim, nb_flow * map_height * map_width)
+        print("External Module", self.ext_module)
         self.close_ilayer = iLayer(input_shape=input_shape)
         self.trend_ilayer = iLayer(input_shape=input_shape)
 
@@ -188,22 +201,26 @@ class STTransformer(nn.Module):
         """
         if len(xc.shape) == 5:
             # reshape 5 dimensions to 4 dimensions.
-            xc, xt = list(map(lambda x: rearrange(x, "b n l h w -> b (n l) h w"), [xc, xt]))
+            xc, xt = list(
+                map(lambda x: rearrange(x, "b n l h w -> b (n l) h w"), [xc, xt])
+            )
         batch_size = xc.shape[0]
         identity_xc, identity_xt = xc, xt
         if self.pre_conv:
             xc = self.pre_close_conv(xc)
             xt = self.pre_trend_conv(xt)
 
-
-
         close_out = self.closeness_transformer(xc)
         trend_out = self.trend_transformer(xt)
 
         # relu + linear
 
-        close_out = close_out.reshape(batch_size, self.nb_flow, self.map_height, self.map_width)
-        trend_out = trend_out.reshape(batch_size, self.nb_flow, self.map_height, self.map_width)
+        close_out = close_out.reshape(
+            batch_size, self.nb_flow, self.map_height, self.map_width
+        )
+        trend_out = trend_out.reshape(
+            batch_size, self.nb_flow, self.map_height, self.map_width
+        )
 
         close_out = self.close_ilayer(close_out)
         trend_out = self.trend_ilayer(trend_out)
@@ -217,10 +234,15 @@ class STTransformer(nn.Module):
         if x_ext is not None:
             out_ext = self.ext_module(x_ext)
             # out_ext = repeat(out_ext,"b d -> b c d",c=2)
-            out_ext = rearrange(out_ext,"b (c h w) -> b c h w",c=self.nb_flow,h=self.map_height,w=self.map_width)
+            out_ext = rearrange(
+                out_ext,
+                "b (c h w) -> b c h w",
+                c=self.nb_flow,
+                h=self.map_height,
+                w=self.map_width,
+            )
             # out_ext = self.ext_ilayer(out_ext)
             out += out_ext
-
 
         if not self.training:
             out = out.relu()
@@ -239,16 +261,22 @@ def create_model(arg):
     # num_close,map_height,map_width
     xc_shape = (arg.close_channels, arg.map_height, arg.map_width)
     xt_shape = (arg.trend_channels, arg.map_height, arg.map_width)
-    summary(model.to(device), [xc_shape, xt_shape,])
+    summary(
+        model.to(device),
+        [
+            xc_shape,
+            xt_shape,
+        ],
+    )
     return model.to(device)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     shape = (1, 2, 6, 32, 32)
     # 1,12,32,32 -> 1,64,16*12
     xt = torch.randn(shape)
     xc = torch.randn(shape)
-    transformer = STTransformer(close_channels=12, trend_channels=12,conv3d=True)
+    transformer = STTransformer(close_channels=12, trend_channels=12, conv3d=True)
 
     pred = transformer(xc, xt)
     print(pred.shape)

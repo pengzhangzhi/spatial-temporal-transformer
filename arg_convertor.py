@@ -1,4 +1,4 @@
-'''=================================================
+"""=================================================
 
 @Project -> File：新建文件夹->arg_convertor
 
@@ -11,7 +11,7 @@
 @author:Pengzhangzhi
 
 @Desc：
-=================================================='''
+=================================================="""
 import json
 import os
 import torch
@@ -55,12 +55,21 @@ def arg_class2dict(arg_class):
 def arg_class2json(arg_class, path):
     """generate args json file."""
     temp_dict = arg_class2dict(arg_class)
-    with open(path, 'w', encoding='utf-8') as file:
+    with open(path, "w", encoding="utf-8") as file:
         json.dump(temp_dict, file, ensure_ascii=False, indent=2)
 
 
-def convert_TaxiBJ(c=4, t=1, depth=2, pretrain_epoch=600, sp=True, pretrain_way_="random", config_name="TaxiBJ",
-                   pretrain_times_=1, ex=28):
+def convert_TaxiBJ(
+    c=4,
+    t=1,
+    depth=2,
+    pretrain_epoch=600,
+    sp=True,
+    pretrain_way_="random",
+    config_name="TaxiBJ",
+    pretrain_times_=1,
+    ex=28,
+):
     class arg:
         split = 0.1
         batch_size = 128
@@ -106,17 +115,23 @@ def convert_TaxiBJ(c=4, t=1, depth=2, pretrain_epoch=600, sp=True, pretrain_way_
         close_mlp_dim = 512
         trend_mlp_dim = 512
 
-    path = os.path.join("config",f"{config_name}.json")
+    path = os.path.join("config", f"{config_name}.json")
     arg_class2json(arg, path)
     print("done!")
 
 
-def convert_BikeNYC(c=6, t=2,
-                    pt=0, pw="random",
-                    pc=True, sp=True, sc=True,
-                    depth=2,
-                    ps=4,
-                    config_name="BikeNYC", ):
+def convert_BikeNYC(
+    c=6,
+    t=2,
+    pt=0,
+    pw="random",
+    pc=True,
+    sp=True,
+    sc=True,
+    depth=2,
+    ps=4,
+    config_name="BikeNYC",
+):
     class arg:
         split = 0.1
         batch_size = 128
@@ -164,17 +179,24 @@ def convert_BikeNYC(c=6, t=2,
         trend_head = 2
         close_mlp_dim = 512
         trend_mlp_dim = 512
-    path = os.path.join("config",f"{config_name}.json")
+
+    path = os.path.join("config", f"{config_name}.json")
     arg_class2json(arg, path)
     print("done!")
 
 
-def convert_BikeDC(c=6, t=2,
-                    pt=0, pw="random",
-                    pc=True, sp=True, sc=True,
-                    depth=2,
-                    ps=4,
-                    config_name="BikeDC", ):
+def convert_BikeDC(
+    c=6,
+    t=2,
+    pt=0,
+    pw="random",
+    pc=True,
+    sp=True,
+    sc=True,
+    depth=2,
+    ps=4,
+    config_name="BikeDC",
+):
     class arg:
         split = 0.1
         batch_size = 128
@@ -220,16 +242,24 @@ def convert_BikeDC(c=6, t=2,
         trend_head = 2
         close_mlp_dim = 512
         trend_mlp_dim = 512
-    path = os.path.join("config",f"{config_name}.json")
+
+    path = os.path.join("config", f"{config_name}.json")
     arg_class2json(arg, path)
     print("done!")
-    
-def convert_BikeCHI(c=6, t=2,
-                    pt=0, pw="random",
-                    pc=True, sp=True, sc=True,
-                    depth=2,
-                    ps=4,
-                    config_name="BikeCHI", ):
+
+
+def convert_BikeCHI(
+    c=6,
+    t=2,
+    pt=0,
+    pw="random",
+    pc=True,
+    sp=True,
+    sc=True,
+    depth=2,
+    ps=4,
+    config_name="BikeCHI",
+):
     class arg:
         split = 0.1
         batch_size = 128
@@ -275,16 +305,25 @@ def convert_BikeCHI(c=6, t=2,
         trend_head = 2
         close_mlp_dim = 512
         trend_mlp_dim = 512
-    path = os.path.join("config",f"{config_name}.json")
+
+    path = os.path.join("config", f"{config_name}.json")
     arg_class2json(arg, path)
     print("done!")
-    
-    
-def convert_TaxiNYC(c=6, t=2,
-                    pt=1, pw="random",
-                    pc=True, sp=True, sc=True,
-                    depth=2, ps=8, trans_dim=128,
-                    config_name="TaxiNYC", ):
+
+
+def convert_TaxiNYC(
+    c=6,
+    t=2,
+    pt=1,
+    pw="random",
+    pc=True,
+    sp=True,
+    sc=True,
+    depth=2,
+    ps=8,
+    trans_dim=128,
+    config_name="TaxiNYC",
+):
     class arg:
         split = 0.1
         batch_size = 128
@@ -331,7 +370,7 @@ def convert_TaxiNYC(c=6, t=2,
         close_mlp_dim = 512
         trend_mlp_dim = 512
 
-    path = os.path.join("config",f"{config_name}.json")
+    path = os.path.join("config", f"{config_name}.json")
     arg_class2json(arg, path)
     print("done!")
 
@@ -339,57 +378,90 @@ def convert_TaxiNYC(c=6, t=2,
 def generate_idx_depth_args():
     for depth in [2, 8]:
         for index in range(1, 8):
-            convert_TaxiBJ(index=index, depth=depth, config_name=f"exchange_idx={index}_depth={depth}")
-            print(fr"exchange_idx={index}, depth={depth}")
+            convert_TaxiBJ(
+                index=index,
+                depth=depth,
+                config_name=f"exchange_idx={index}_depth={depth}",
+            )
+            print(rf"exchange_idx={index}, depth={depth}")
     convert_BikeNYC()
     convert_TaxiNYC()
 
 
 def generate_depth_args():
     for depth in range(1, 9):
-        convert_TaxiBJ(depth=depth, config_name=f"depth={depth}_c10_p4_no_pretrain_pretrain_1")
-        print(fr" depth={depth}")
+        convert_TaxiBJ(
+            depth=depth, config_name=f"depth={depth}_c10_p4_no_pretrain_pretrain_1"
+        )
+        print(rf" depth={depth}")
 
 
 def generate_depth_shuffle_args():
     for depth in range(2, 9):
         for pretrain_time in [1, 4]:
-            convert_TaxiBJ(c=10, t=4, pretrain_way_="shuffle",
-                           pretrain_times_=pretrain_time, depth=depth,
-                           config_name=f"shuffle_each_pretrain_{pretrain_time}_depth={depth}_c10_p4")
-            print(fr" depth={depth}")
+            convert_TaxiBJ(
+                c=10,
+                t=4,
+                pretrain_way_="shuffle",
+                pretrain_times_=pretrain_time,
+                depth=depth,
+                config_name=f"shuffle_each_pretrain_{pretrain_time}_depth={depth}_c10_p4",
+            )
+            print(rf" depth={depth}")
 
 
 def generate_shuffle_with_default_data_Scale():
     for pretrain_way in ["shuffle", "same_shuffle"]:
         for shuffle_mode in ["shuffle_his", "shuffle_all"]:
             for pretrain_time in [1, 4]:
-                convert_TaxiBJ(c=6, t=2, depth=2,
-                               pretrain_way_=pretrain_way,
-                               shuffle_mode_=shuffle_mode,
-                               pretrain_times_=pretrain_time,
-                               config_name=f"c6t2_depth_2{pretrain_way}_{shuffle_mode}_pretrain_times_{pretrain_time}")
+                convert_TaxiBJ(
+                    c=6,
+                    t=2,
+                    depth=2,
+                    pretrain_way_=pretrain_way,
+                    shuffle_mode_=shuffle_mode,
+                    pretrain_times_=pretrain_time,
+                    config_name=f"c6t2_depth_2{pretrain_way}_{shuffle_mode}_pretrain_times_{pretrain_time}",
+                )
 
 
 def generate_c4_t1_random_args():
     for depth in range(2, 9):
-        convert_TaxiBJ(c=4, t=1, pretrain_way_="random",
-                       depth=depth, pretrain_times_=1,
-                       config_name=f"random_c4_t1_pretrain_1_depth={depth}")
+        convert_TaxiBJ(
+            c=4,
+            t=1,
+            pretrain_way_="random",
+            depth=depth,
+            pretrain_times_=1,
+            config_name=f"random_c4_t1_pretrain_1_depth={depth}",
+        )
         print(f"random_c4_t1_pretrain_1_depth={depth}")
 
 
 def generate_random_pick(c=4, t=1, depth=6, pretrain_way_="random", pretrain_times_=1):
-    convert_TaxiBJ(c=c, t=t, depth=depth,
-                   pretrain_way_=pretrain_way_,
-                   pretrain_times_=pretrain_times_,
-                   config_name=f"c{c}t{t}_depth_{depth}_pretrain_way_{pretrain_way_}_pretrain_times_{pretrain_times_}",
-                   )
+    convert_TaxiBJ(
+        c=c,
+        t=t,
+        depth=depth,
+        pretrain_way_=pretrain_way_,
+        pretrain_times_=pretrain_times_,
+        config_name=f"c{c}t{t}_depth_{depth}_pretrain_way_{pretrain_way_}_pretrain_times_{pretrain_times_}",
+    )
 
 
-def generate_TaxiBJ(c=4, t=1, pretrain_times_=1, ):
+def generate_TaxiBJ(
+    c=4,
+    t=1,
+    pretrain_times_=1,
+):
     for i in range(1, 11):
-        convert_TaxiBJ(c=c, t=t, sp=False, pretrain_times_=pretrain_times_, config_name=f"TaxiBJ{i}")
+        convert_TaxiBJ(
+            c=c,
+            t=t,
+            sp=False,
+            pretrain_times_=pretrain_times_,
+            config_name=f"TaxiBJ{i}",
+        )
 
 
 def generate_TaxiNYC():
@@ -397,15 +469,21 @@ def generate_TaxiNYC():
         convert_TaxiNYC(c=10, t=4, pt=1, sp=False, config_name=f"TaxiNYC{i}")
 
 
-if __name__ == '__main__':
-    convert_BikeNYC(c=6, t=2,
-                    pt=1, pw="random",
-                    pc=True, sp=True, sc=True,
-                    depth=2,
-                    ps=10,
-                    config_name="BikeNYC", )
-    convert_BikeDC(c=4,t=2,pt=0,config_name="BikeDC_c4_t2")
-    convert_BikeDC(c=6,t=4,pt=0,config_name="BikeDC_c6_t4")
-    convert_BikeDC(c=10,t=4,pt=0,config_name="BikeDC_c10_t4")
-    convert_BikeDC(c=6,t=2,pt=0,config_name="BikeDC_c6_t2")
+if __name__ == "__main__":
+    convert_BikeNYC(
+        c=6,
+        t=2,
+        pt=1,
+        pw="random",
+        pc=True,
+        sp=False,
+        sc=True,
+        depth=2,
+        ps=10,
+        config_name="BikeNYC_c6_t2",
+    )
+    convert_BikeDC(c=4, t=2, pt=0, config_name="BikeDC_c4_t2")
+    convert_BikeDC(c=6, t=4, pt=0, config_name="BikeDC_c6_t4")
+    convert_BikeDC(c=10, t=4, pt=0, config_name="BikeDC_c10_t4")
+    convert_BikeDC(c=6, t=2, pt=0, config_name="BikeDC_c6_t2")
     convert_BikeCHI()
