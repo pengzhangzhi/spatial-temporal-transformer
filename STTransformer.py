@@ -189,7 +189,9 @@ class STTransformer(nn.Module):
             # self.Rc_conv_Xt = Rc(input_shape)
         if ext_dim != 0:
             self.ext_module = ExtComponent(ext_dim, nb_flow * map_height * map_width)
-        print("External Module", self.ext_module)
+            print("External Module", self.ext_module)
+        else:
+            self.ext_module = None
         self.close_ilayer = iLayer(input_shape=input_shape)
         self.trend_ilayer = iLayer(input_shape=input_shape)
 
@@ -231,7 +233,7 @@ class STTransformer(nn.Module):
             # +self.Rc_conv_Xc(xc_conv)+self.Rc_conv_Xt(xt_conv)
             out += shortcut_out
 
-        if x_ext is not None:
+        if x_ext is not None and self.ext_module:
             out_ext = self.ext_module(x_ext)
             # out_ext = repeat(out_ext,"b d -> b c d",c=2)
             out_ext = rearrange(
