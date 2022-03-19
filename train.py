@@ -293,6 +293,11 @@ def pretrain(
 
     model = create_model(arg=args)
 
+    # cancel the external module
+    ext_module = model.ext_module
+    if model.ext_module:
+        model.ext_module = None
+    
     # if has model pretrain checkpoint, load it.
     model_checkpoint_path = os.path.join(pretrain_dir, "best_model.pt")
     if os.path.exists(model_checkpoint_path):
@@ -348,7 +353,8 @@ def pretrain(
                 print("early stop~")
                 break
     if os.path.exists(model_checkpoint_path):
-        model.load_state_dict(torch.load(model_checkpoint_path))  # load best model
+        model.load_state_dict(torch.load(model_checkpoint_path),strict=False)  # load best model
+    model.ext_module = ext_module
     training_result = train(args, model, experiment_path)
     return training_result
 
