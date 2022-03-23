@@ -1,10 +1,11 @@
 import os
 import numpy as np
 import pandas as pd
+from arg_convertor import arg_class2json
 from help_funcs import read_config_class
 from train import pretrain, train
 from utils import reproducibility
-
+import copy
 
 """
 run a experiments multiple times given args file.
@@ -28,23 +29,19 @@ def run_repeative_experiments(args, total_num_of_experiments=10, path=None):
         4. run num_of_experiment_once experiments each time.
     """
     
-    if path is None:
-        path = f"./{args.experiment_name}_num_of_exp_{total_num_of_experiments}.csv"
 
     base_experiment_name = args.experiment_name
     test_results = []
-    for i in range(len(total_num_of_experiments)):
+    for i in range(total_num_of_experiments):
         reproducibility(i)
         experiment_name = f"{base_experiment_name}___{i}"
-        args_temp = args.copy()
+        args_temp = copy.copy(args)
         args_temp.experiment_name = experiment_name
-        if args_temp.pretrain:
-            test_result = pretrain(args_temp)
-        else:
-            test_result = train(args_temp)
+        test_result = pretrain(args_temp) if args_temp.pretrain_times != 0 else train(args_temp)
         test_results.append(test_result)
     result = calculate_average_results(test_results)
     save_result(result, path)
+    arg_class2json(args,os.path.join(path,"arg.json"))
     return result
 
 
@@ -55,8 +52,9 @@ def save_result(result, path):
         result (pd.DataFrame): result in dataframe format.
         path (str):
     """
-    os.makedirs(path)
-    result.to_csv(path)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    result.to_csv(os.path.join(path, "result.csv"))
 
 
 def calculate_average_results(test_results):
@@ -66,24 +64,32 @@ def calculate_average_results(test_results):
         test_results (list[list]): the test results of all experiments, each result saves the five evaluations of "MSE", "RMSE", "MAE", "MAPE", "APE"
 
     Returns:
-        result (DataFrame): the first raw is the mean result and the second raw is the std.
+        result (DataFrame): the result of total experiments where the last two raw are the mean result and the std.
     """
     test_results = np.array(test_results)
-    mean_results = test_results.mean(axis=1)
-    std_results = test_results.std(axis=1)
-    mean_results = pd.DataFrame(
-        mean_results, columns=["MSE", "RMSE", "MAE", "MAPE", "APE"]
+    mean_results = pd.DataFrame(test_results.mean(axis=0))
+    std_results = pd.DataFrame(test_results.std(axis=0))
+    test_results_df = pd.DataFrame(
+        test_results, columns=["MSE", "RMSE", "MAE", "MAPE", "APE"]
     )
-    result = mean_results.join(std_results)
-    return result
+    
+    test_results_df = test_results_df.append(mean_results)
+    test_results_df = test_results_df.append(std_results)
+    return test_results_df
 
 
-def ablation_study(total_num_of_experiments, args, path):
+def ablation_study(total_num_of_experiments, args):
+    """conduct ablation_study in an increamental fashion.
 
+    Args:
+        total_num_of_experiments (int): number of experiments in an ablation.
+        args (_type_): config class
+    """
+    arg_temp = copy.copy(args)
     arg_temp.seq_pool = False
     base_experiment_name = args.experiment_name
 
-    arg_temp = args.copy()
+    
     arg_temp.pre_conv = False
     arg_temp.shortcut = False
     arg_temp.ext_dim = 0
@@ -98,13 +104,15 @@ def ablation_study(total_num_of_experiments, args, path):
         "_ablation_pre_conv_shortcut_ext_dim_pretrain",
     ]
     for i, suffix in enumerate(suffixs):
-        arg_temp.pre_conv = i == 1
-        arg_temp.shortcut = i == 2
-        arg_temp.ext_dim = args.ext_dim if i == 3 else 0
-        arg_temp.pretrain_times = 1 if i == 4 else 0
+        fold_path = os.path.join("ablation_results",base_experiment_name,suffix)
+        arg_temp.pre_conv = (i >= 1) 
+        arg_temp.shortcut = i >= 2
+        arg_temp.ext_dim = 0 if i >= 3 else arg_temp.ext_dim
+        arg_temp.pretrain_times = 1 if i >= 4 else 0
         ablation_results[suffix] = run_ablation_experiments(
-            suffix, total_num_of_experiments, base_experiment_name, arg_temp, path
+            suffix, total_num_of_experiments, base_experiment_name, arg_temp, path=fold_path
         )
+        
 
 
 def run_ablation_experiments(
@@ -112,9 +120,67 @@ def run_ablation_experiments(
 ):
 
     arg_temp.experiment_name = f"{base_experiment_name}_{suffix}"
-    return run_repeative_experiments(total_num_of_experiments, arg_temp, path)
+    return run_repeative_experiments(arg_temp,total_num_of_experiments, path)
 
-
-if __name__ == "__main__":
+def test_repeative_experiments():
     args = read_config_class("arg1")
-    run_repeative_experiments(args, total_num_of_experiments=10)
+    args.epochs = 1
+    args.pretrain_times = 1
+    args.pretrain_epochs = 1
+    args.experiment_name = "repeative_experiments_test!"
+    run_repeative_experiments(args, total_num_of_experiments=1)
+
+def test_repeative_experiments_no_pretrain():
+    args = read_config_class("arg1")
+    args.epochs = 1
+    args.pretrain_times = 0
+    args.pretrain_epochs = 1
+    run_repeative_experiments(args, total_num_of_experiments=1)
+
+
+def test_ablation_experiments():
+    args = read_config_class("arg1")
+    args.epochs = 1
+    args.pretrain_times = 1
+    args.pretrain_epochs = 1
+    ablation_study(total_num_of_experiments=1,args=args)
+
+
+def run_ablation_BikeNYC():
+    args = read_config_class("BikeNYC_c6_t2")
+    ablation_study(total_num_of_experiments=10,args=args)
+
+def ablation_pre_conv_shortcut():
+    args = read_config_class("BikeNYC_c6_t2")
+    base_experiment_name = args.experiment_name 
+    suffix = "_ablation_pre_conv_shortcut"
+    fold_path = os.path.join("ablation_results",base_experiment_name,suffix)
+    args.pre_conv = True
+    args.shortcut = True
+    args.ext_dim = 0
+    args.pretrain_times = 0
+    run_repeative_experiments(args, total_num_of_experiments=10, path=fold_path)
+
+def ablation_pre_conv_shortcut_ext_dim():
+    args = read_config_class("BikeNYC_c6_t2")
+    base_experiment_name = args.experiment_name 
+    suffix = "_ablation_pre_conv_shortcut_ext_dim"
+    fold_path = os.path.join("ablation_results",base_experiment_name,suffix)
+    args.pre_conv = True
+    args.shortcut = True
+    args.pretrain_times = 0
+    run_repeative_experiments(args, total_num_of_experiments=10, path=fold_path)
+
+
+def ablation_pre_conv_shortcut_ext_dim_pretrain():
+    args = read_config_class("BikeNYC_c6_t2")
+    base_experiment_name = args.experiment_name 
+    suffix = "_ablation_pre_conv_shortcut_ext_dim_pretrain"
+    fold_path = os.path.join("ablation_results",base_experiment_name,suffix)
+    args.pretrain_times = 1
+    args.pre_conv = True
+    args.shortcut = True
+    run_repeative_experiments(args, total_num_of_experiments=10, path=fold_path)
+if __name__ == "__main__":
+    ablation_pre_conv_shortcut()
+    ablation_pre_conv_shortcut_ext_dim()

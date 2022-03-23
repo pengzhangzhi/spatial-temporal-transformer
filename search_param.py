@@ -19,12 +19,12 @@ def objective(trial):
     """
     :param args: arg class.
     """
-    args = read_config_class("BikeNYC_c6_t2")
+    args = read_config_class("BikeDC_c6_t2")
     args.lr = trial.suggest_float("lr", 0.005, 0.01, log=True)
     args.batch_size = trial.suggest_categorical("batch_size", [32, 62, 128, 256])
 
     args.conv_channels = trial.suggest_int("conv_channels", 32, 256, 32)
-    args.patch_size = trial.suggest_categorical("patch_size", [2, 5, 10])
+    args.patch_size = trial.suggest_categorical("patch_size", [2, 4, 8,16])
     args.close_dim = trial.suggest_categorical("close_dim", [128, 64, 32, 256])
     args.trend_dim = trial.suggest_categorical("trend_dim", [128, 64, 32, 256])
     args.close_depth = trial.suggest_categorical(
@@ -90,10 +90,10 @@ if __name__ == "__main__":
         sampler=optuna.samplers.TPESampler(),
         pruner=optuna.pruners.MedianPruner(),
         study_name="distributed-example",
-        storage="sqlite:///example_BikeNYC.db",
+        storage="sqlite:///BikeDC.db",
         load_if_exists=True,
     )
-    study.optimize(objective, n_trials=8, n_jobs=5)
+    study.optimize(objective, n_trials=10, n_jobs=5)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
