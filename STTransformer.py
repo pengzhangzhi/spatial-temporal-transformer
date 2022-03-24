@@ -207,7 +207,7 @@ class STTransformer(nn.Module):
                 map(lambda x: rearrange(x, "b n l h w -> b (n l) h w"), [xc, xt])
             )
         batch_size = xc.shape[0]
-        identity_xc, identity_xt = xc, xt
+        identity_xc, identity_xt = torch.clone(xc), torch.clone(xt)
         if self.pre_conv:
             xc = self.pre_close_conv(xc)
             xt = self.pre_trend_conv(xt)

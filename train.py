@@ -21,7 +21,6 @@ import torch
 import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 from einops import rearrange
-from torch.utils.tensorboard import SummaryWriter
 
 from STTransformer import create_model
 from help_funcs import (
@@ -263,18 +262,18 @@ def train(args, model=None, experiment_path=None):
             print("early_stop")
             break
 
-    model.load_state_dict(torch.load(model_path))
+    model.load_state_dict(torch.load(model_path),strict=False)
     test_results = test(model=model, data_loader=test_loader, device=device, args=args)
     result_path = os.path.join(experiment_path, "result")
     if not os.path.exists(result_path):
         os.makedirs(result_path)
     save_test_results(test_results, result_path)
 
-    result = str(y_rmse)
-    rmse_format = "a".join(result.split("."))
+    # result = str(y_rmse)
+    # rmse_format = "a".join(result.split("."))
 
-    with open(f"{rmse_format}.txt", "w") as f:
-        f.write(f"{y_rmse}")
+    # with open(f"{rmse_format}.txt", "w") as f:
+    #     f.write(f"{y_rmse}")
     return test_results
 
 
