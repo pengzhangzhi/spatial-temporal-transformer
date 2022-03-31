@@ -6,7 +6,7 @@ from help_funcs import read_config_class
 from train import pretrain, train
 from utils import reproducibility
 import copy
-
+import argparse
 """
 run a experiments multiple times given args file.
 
@@ -153,6 +153,7 @@ def ablation_pre_conv_shortcut():
     base_experiment_name = args.experiment_name 
     suffix = "_ablation_pre_conv_shortcut"
     fold_path = os.path.join("ablation_results",base_experiment_name,suffix)
+    args.experiment_name = args.experiment_name + suffix
     args.pre_conv = True
     args.shortcut = True
     args.ext_dim = 0
@@ -164,10 +165,23 @@ def ablation_pre_conv_shortcut_ext_dim():
     base_experiment_name = args.experiment_name 
     suffix = "_ablation_pre_conv_shortcut_ext_dim"
     fold_path = os.path.join("ablation_results",base_experiment_name,suffix)
+    args.experiment_name = args.experiment_name + suffix
     args.pre_conv = True
     args.shortcut = True
     args.pretrain_times = 0
     run_repeative_experiments(args, total_num_of_experiments=10, path=fold_path)
+
+def ablation_pre_conv_ext_dim():
+    args = read_config_class("BikeNYC_c6_t2")
+    base_experiment_name = args.experiment_name 
+    suffix = "_ablation_pre_conv_shortcut_ext_dim"
+    fold_path = os.path.join("ablation_results",base_experiment_name,suffix)
+    args.experiment_name = args.experiment_name + suffix
+    args.pre_conv = True
+    args.shortcut = True
+    args.pretrain_times = 0
+    run_repeative_experiments(args, total_num_of_experiments=10, path=fold_path)
+
 
 
 def ablation_pre_conv_shortcut_ext_dim_pretrain():
@@ -182,5 +196,13 @@ def ablation_pre_conv_shortcut_ext_dim_pretrain():
     
 
 if __name__ == "__main__":
-    args = read_config_class("BikeDC_c6_t2")
-    ablation_study(10, args)
+    argparser = argparse.ArgumentParser("select ablation to run")
+    argparser.add_argument("-a", "--ablation", type=str, default="pre_conv_shortcut")
+    opt = argparser.parse_args()
+    ablation_name = opt.ablation
+    if ablation_name == "pre_conv_shortcut":
+        print("run pre-conv_shortcut ablation")
+        ablation_pre_conv_shortcut()
+    else:
+        print("run pre-conv_shortcut_ext_dim ablation")
+        ablation_pre_conv_shortcut_ext_dim()
