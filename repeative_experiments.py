@@ -89,11 +89,9 @@ def ablation_study(total_num_of_experiments, args):
     arg_temp.seq_pool = False
     base_experiment_name = args.experiment_name
 
-    
+    ext_dim = args.ext_dim
     arg_temp.pre_conv = False
     arg_temp.shortcut = False
-    arg_temp.ext_dim = 0
-    arg_temp.pretrain_times = 0
 
     ablation_results = {}
     suffixs = [
@@ -107,12 +105,12 @@ def ablation_study(total_num_of_experiments, args):
         fold_path = os.path.join("ablation_results",base_experiment_name,suffix)
         arg_temp.pre_conv = (i >= 1) 
         arg_temp.shortcut = i >= 2
-        arg_temp.ext_dim = 0 if i >= 3 else arg_temp.ext_dim
+        arg_temp.ext_dim = ext_dim if i >= 3 else 0
         arg_temp.pretrain_times = 1 if i >= 4 else 0
         ablation_results[suffix] = run_ablation_experiments(
             suffix, total_num_of_experiments, base_experiment_name, arg_temp, path=fold_path
         )
-        
+    
 
 
 def run_ablation_experiments(
@@ -181,6 +179,8 @@ def ablation_pre_conv_shortcut_ext_dim_pretrain():
     args.pre_conv = True
     args.shortcut = True
     run_repeative_experiments(args, total_num_of_experiments=10, path=fold_path)
+    
+
 if __name__ == "__main__":
-    ablation_pre_conv_shortcut()
-    ablation_pre_conv_shortcut_ext_dim()
+    args = read_config_class("BikeDC_c6_t2")
+    ablation_study(10, args)

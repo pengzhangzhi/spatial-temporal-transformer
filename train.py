@@ -362,7 +362,7 @@ def pretrain(
 if __name__ == "__main__":
     reproducibility(seed=666)
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config-name", type=str, default="TaxiBJ")
+    parser.add_argument("-c", "--config-name", type=str, default="BikeDC_c6_t2")
     parser.add_argument("-e", "--exp-name", type=str)
     parser.add_argument("-pe", "--pretrain-epochs", type=int, default=0)
     parser.add_argument("-ep", "--epochs", type=int, default=0)

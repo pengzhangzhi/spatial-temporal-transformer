@@ -90,10 +90,10 @@ if __name__ == "__main__":
         sampler=optuna.samplers.TPESampler(),
         pruner=optuna.pruners.MedianPruner(),
         study_name="distributed-example",
-        storage="sqlite:///BikeDC.db",
+        storage="sqlite:///BikeDC_2_job.db",
         load_if_exists=True,
     )
-    study.optimize(objective, n_trials=10, n_jobs=5)
+    study.optimize(objective, n_trials=10, n_jobs=2)
 
     pruned_trials = study.get_trials(deepcopy=False, states=[TrialState.PRUNED])
     complete_trials = study.get_trials(deepcopy=False, states=[TrialState.COMPLETE])
