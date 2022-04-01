@@ -13,7 +13,10 @@
 @Desc：
 =================================================='''
 import os
+import re
 import sys
+from time import time
+
 
 import torch
 import torch.nn as nn
@@ -21,7 +24,7 @@ from einops import rearrange, reduce
 from torch.nn import init
 
 from arg_convertor import arg_class2dict
-from base_layers import BasicBlock
+from base_layers import BasicBlock, PostConvBlock
 from help_funcs import summary, Logger
 from vit import ViT
 
@@ -64,8 +67,88 @@ class iLayer(nn.Module):
         output: (batch, c, h,w)
         '''
         return x * self.weights
+    
+    
+class TemporalMLP(nn.Module):
+    """ transform a spatial-temporal embedding to temporal embedding.
+        TODO: add layer norm.
+    """
+    def __init__(self,in_dim, hidden_dim, num_time_class):
+        super(TemporalMLP, self).__init__()
+        self.temporal_mlp = nn.Sequential(
+                nn.Linear(in_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, num_time_class)
+        )
+        
+    def forward(self,embedding):
+        return self.temporal_mlp(embedding)
 
+def pair(t):
+    return t if isinstance(t, list) else [t, t]
 
+class InversePatchify(nn.Module):
+    """transform bunch of tokens into 2D map by inverse patchify.
+
+    """
+    def __init__(self,map_size,patch_size,token_dim,num_channels):
+        """ the map size and the patch size should match.
+        Args:
+            map_size (int/list): 
+            patch_size (int/list): 
+            token_dim (int): 
+            num_channels (int): the num of channels of output 2d feature map.
+        """        
+        super(InversePatchify, self).__init__()
+        self.map_height, self.map_width = pair(map_size)
+        self.patch_height, self.patch_width = pair(patch_size)
+        self.num_heights = self.map_height // self.patch_height
+        self.num_widths = self.map_width // self.patch_width
+        assert self.map_height % self.patch_height == 0 and self.map_width % self.patch_width == 0, 'Map dimensions must be divisible by the patch size.'
+        self.linear = nn.Linear(token_dim, self.patch_height*self.patch_width*num_channels)
+    def forward(self,st_embedding):
+        """ inverse the st_embedding back to the 2D map.
+
+        Args:
+            st_embedding (torch.Tensor): (batch size, num_tokens, token_dim)
+
+        Returns:
+            torch.Tensor: (batch_size, num_channels, map_height, map_width)
+        """        
+        st_embedding = self.linear(st_embedding) # (batch_size, num_tokens, patch_height* patch_width* num_channels)
+        st_embedding = rearrange(st_embedding,"b n (ph pw c) -> b n ph pw c",ph=self.patch_height, pw = self.patch_width)
+        map_features = rearrange(st_embedding,"b (nh nw) ph pw c -> b c (nh ph) (nw pw)",nh=self.num_heights,nw=self.num_widths)
+        return map_features
+    
+class TemporalAttention(nn.Module):
+    """ temporal attention module that leverage time information of predicted interval to generate a 2D attention map.
+    """    
+    def __init__(self,embedding_dim, map_size):
+        """ 
+        Args:
+            embedding_dim (int): the dim of time embedding (num of time class).
+            map_size (int/list): the map size of 2D flow map.
+        """        
+        super().__init__()
+        self.embedding_dim = embedding_dim
+        self.map_height, self.map_width = pair(map_size)
+        self.attention = nn.Sequential(
+            nn.Linear(embedding_dim, self.map_height* self.map_width),
+        )
+            
+    def forward(self,time_embedding):
+        """ transform the time_embedding to temporal attention that are applied to 2D feature map.
+
+        Args:
+            time_embedding (torch.Tensor): the time embedding used for time prediction.(batch_size, embedding_dim)
+
+        Returns:
+            torch.Tensor: 2D attention map with temporal information. (batch_size, map_height,map_width)
+        """        
+        time_attention = self.attention(time_embedding)
+        time_attention = rearrange(time_attention, "b (h w) -> b 1 h w", h=self.map_height, w=self.map_width)
+        return time_attention
+        
 class STTransformer(nn.Module):
     def __init__(self, map_height=32, map_width=32, patch_size=4,
                  close_channels=6, trend_channels=6, close_dim=1024, trend_dim=1024,
@@ -76,30 +159,11 @@ class STTransformer(nn.Module):
                  shortcut=True,
                  conv_channels=64,
                  drop_prob=0.1,
-                 conv3d=False,
                  time_class=48,
+                 temporal_hidden_dim = 2048,
+                 post_num_channels = 10,
                  **kwargs):
-        """
 
-        :param seq_pool: whether to use sequence pooling.
-        :param pre_conv: whether to use pre-conv
-        :param conv_channels: number of channels inside pre_conv.
-        :param map_height:
-        :param map_width:
-        :param patch_size:
-        :param close_channels: number of channels in Xc,
-        :param trend_channels: number of channels in Xc,
-        :param close_dim: embedding dimension of closeness component.
-        :param trend_dim: embedding dimension of trend component.
-        :param close_depth: number of transformer in closeness component
-        :param trend_depth: number of transformer in trend component
-        :param close_head: number of head in closeness component
-        :param trend_head: number of head in trend component
-        :param close_mlp_dim: embedding dimension of a head in closeness component
-        :param trend_mlp_dim: embedding dimension of a head in trend component
-        :param nb_flow: number of flow.
-        :param kwargs: filter out useless args.
-        """
         super(STTransformer, self).__init__()
         self.map_height = map_height
         self.map_width = map_width
@@ -109,15 +173,12 @@ class STTransformer(nn.Module):
         trend_dim_head = int(trend_dim / close_head)
 
         self.pre_conv = pre_conv
-        self.conv3d = conv3d
         if pre_conv:
             self.pre_close_conv = nn.Sequential(
                 BasicBlock(inplanes=close_channels, planes=conv_channels),
-                # BasicBlock(inplanes=close_channels,planes=conv_channels),
             )
             self.pre_trend_conv = nn.Sequential(
                 BasicBlock(inplanes=trend_channels, planes=conv_channels),
-                # BasicBlock(inplanes=trend_channels,planes=conv_channels)
             )
 
         # close_channels, trend_channels = nb_flow * close_channels, nb_flow * trend_channels
@@ -151,8 +212,12 @@ class STTransformer(nn.Module):
             seq_pool=seq_pool,
 
         )
+        combined_token_dim = (close_dim + trend_dim)
+        self.inverse_patchify = InversePatchify([map_height, map_width],patch_size,combined_token_dim,post_num_channels)
+        self.temporal_mlp = TemporalMLP(combined_token_dim, temporal_hidden_dim,time_class)
+        self.temporal_attention = TemporalAttention(time_class,[map_height, map_width])
+        self.post_conv_block = PostConvBlock(inplanes=post_num_channels, planes=self.nb_flow)
         input_shape = (nb_flow, map_height, map_width)
-
         self.shortcut = shortcut
         if shortcut:
             self.Rc_Xc = Rc(input_shape)
@@ -163,11 +228,6 @@ class STTransformer(nn.Module):
         self.close_ilayer = iLayer(input_shape=input_shape)
         self.trend_ilayer = iLayer(input_shape=input_shape)
 
-        self.mlp = nn.Sequential(
-                nn.Linear((close_dim + trend_dim), (close_dim + trend_dim)),
-                nn.ReLU(),
-                nn.Linear((close_dim + trend_dim), time_class)
-        )
 
         self.mlp_head_close = nn.Sequential(
             nn.Linear(close_dim, output_dim),
@@ -187,13 +247,30 @@ class STTransformer(nn.Module):
             # reshape 5 dimensions to 4 dimensions.
             xc, xt = list(map(lambda x: rearrange(x, "b n l h w -> b (n l) h w"), [xc, xt]))
         batch_size = xc.shape[0]
-        identity_xc, identity_xt = xc, xt
+        identity_xc, identity_xt = torch.clone(xc), torch.clone(xt)
+        # pre-conv Block
         if self.pre_conv:
             xc = self.pre_close_conv(xc)
             xt = self.pre_trend_conv(xt)
-
-        close_out = self.closeness_transformer(xc)
-        trend_out = self.trend_transformer(xt)
+        # transformer block
+        close_out, mean_close_out = self.closeness_transformer(xc)
+        trend_out, mean_trend_out = self.trend_transformer(xt)
+        
+        # temporal prediction task
+        # xc, xt: (Batch_size, Token_Dim)
+        temporal_embedding = torch.cat([mean_close_out, mean_trend_out], dim=-1)
+        time_class = self.temporal_mlp(temporal_embedding)
+        
+        st_embedding = torch.cat([close_out,trend_out], dim=-1) # (b, num_tokens, 2*token_dim)
+        st_map = self.inverse_patchify(st_embedding) # (b, n_channels, map_height,map_width)
+        time_attention = self.temporal_attention(time_class) # (b, 1, map_height,map_width)
+        
+        st_map = st_map * time_attention # (b, n_channels, map_height,map_width)
+        
+        st_map = self.post_conv_block(st_map) # (b, n_flow, map_height,map_width)
+        
+        
+        
         identity_close_out, identity_trend_out = close_out, trend_out
         close_out, trend_out = self.mlp_head_close(close_out), self.mlp_head_trend(trend_out)
 
@@ -215,11 +292,9 @@ class STTransformer(nn.Module):
             out = out.relu()
 
 
-        # classification task
-        # xc, xt: (Batch_size, Token_Dim)
-        concat_x = torch.cat([identity_close_out, identity_trend_out], dim=-1)
-        out_class = self.mlp(concat_x)
-        out = (out, out_class)
+        
+        
+        out = (out, time_class)
         return out
 
 
@@ -245,7 +320,7 @@ if __name__ == '__main__':
     # 1,12,32,32 -> 1,64,16*12
     xt = torch.randn(shape)
     xc = torch.randn(shape)
-    transformer = STTransformer(close_channels=12, trend_channels=12, conv3d=True)
+    transformer = STTransformer(close_channels=12, trend_channels=12)
 
     pred = transformer(xc, xt)
     print(pred.shape)
