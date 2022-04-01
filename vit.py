@@ -130,6 +130,14 @@ class Softmax(nn.Module):
 
 
 class ViT(nn.Module):
+    """ViT for traffic flow prediction.
+
+        Compared with original ViT, I made the following changes:
+            1. cancel the class token.
+            2. cancel the final linear layer.
+            3. output all tokens and the mean token.
+
+    """
 
     def __init__(self, *,
                  image_size,
@@ -141,9 +149,8 @@ class ViT(nn.Module):
                  channels=3,
                  dim_head=64,
                  dropout=0.,
-                 emb_dropout=0., seq_pool=True):
+                 emb_dropout=0.):
         """
-
         args:
         :param image_size: input map size
         :param patch_size: patch size
@@ -177,7 +184,6 @@ class ViT(nn.Module):
         )
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
-        # self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
         self.transformer = Transformer(dim, depth, heads, dim_head, mlp_dim, dropout)
@@ -185,49 +191,23 @@ class ViT(nn.Module):
         self.pool = pool
         self.to_latent = nn.Identity()
         mlp_dim = dim
-        # if seq_pool:
-        #     mlp_dim = dim * num_patches
-        # else:
-        #     mlp_dim = dim
-        self.mlp_head = nn.Sequential(
-            nn.LayerNorm(mlp_dim),
-            # nn.Linear(mlp_dim, num_classes),
 
+        self.layer_norm = nn.Sequential(
+            nn.LayerNorm(mlp_dim),
         )
-        self.seq_pool = seq_pool
-        if seq_pool:
-            self.attention_pool = nn.Linear(dim, 1)
-            # self.atten_layer_norm = nn.LayerNorm([self.num_patches, dim])
-            # self.attention_pool = nn.Sequential(self.atten_layer_norm,self.attention_pool)
-            self.softmax_scale = dim
-            self.softmax = Softmax(normlization_scale=self.softmax_scale)
 
     def forward(self, img):
         x = self.to_patch_embedding(img)
         b, n, _ = x.shape
-
-        # cls_tokens = repeat(self.cls_token, '() n d -> b n d', b=b)
-        # x = torch.cat((cls_tokens, x), dim=1)
         x += self.pos_embedding[:, :(n)]
         x = self.dropout(x)
 
         x = self.transformer(x)
 
-        if self.seq_pool:
-            x = torch.matmul(self.softmax(self.attention_pool(x)).transpose(-1, -2), x).squeeze(-2)
-            # attention_sequence = self.softmax(self.attention_pool(x))
-            # attention_sequence = repeat(attention_sequence, "b n d -> b n (d dim)", dim=self.dim)
-            # x = x * attention_sequence
-            # x = rearrange(x, "b n d -> b (n d)")
-
-
-        else:
-            x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]
-
-        x = self.to_latent(x)
-        x = self.mlp_head(x)
-
-        return x
+        tokens = self.layer_norm(x)
+        mean_token = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]
+        mean_token = self.layer_norm(mean_token)
+        return tokens, mean_token
 
 
 if __name__ == '__main__':
@@ -241,7 +221,6 @@ if __name__ == '__main__':
         mlp_dim=2048,
         dropout=0.1,
         emb_dropout=0.1,
-        seq_pool=True
     )
 
     # import Recorder and wrap the ViT
@@ -250,7 +229,7 @@ if __name__ == '__main__':
 
     img = torch.randn(1, 3, 256, 256)
     preds = v(img)
-    print(preds.shape)
+    print(preds[0].shape,preds[1].shape)
     # there is one extra patch due to the CLS token 64 + 1
 
     # from vit_pytorch.cct import CCT
