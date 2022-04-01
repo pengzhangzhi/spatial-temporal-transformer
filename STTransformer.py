@@ -151,10 +151,9 @@ class TemporalAttention(nn.Module):
         
 class STTransformer(nn.Module):
     def __init__(self, map_height=32, map_width=32, patch_size=4,
-                 close_channels=6, trend_channels=6, close_dim=1024, trend_dim=1024,
+                 len_closeness=6, len_trend=6, close_dim=1024, trend_dim=1024,
                  close_depth=4, trend_depth=4, close_head=2,
                  trend_head=2, close_mlp_dim=2048, trend_mlp_dim=2048, nb_flow=2,
-                 seq_pool=True,
                  pre_conv=True,
                  shortcut=True,
                  conv_channels=64,
@@ -173,6 +172,8 @@ class STTransformer(nn.Module):
         trend_dim_head = int(trend_dim / close_head)
 
         self.pre_conv = pre_conv
+        close_channels = len_closeness*nb_flow
+        trend_channels = len_trend*nb_flow
         if pre_conv:
             self.pre_close_conv = nn.Sequential(
                 BasicBlock(inplanes=close_channels, planes=conv_channels),
@@ -195,7 +196,6 @@ class STTransformer(nn.Module):
             emb_dropout=drop_prob,
             channels=close_channels,
             dim_head=close_dim_head,
-            seq_pool=seq_pool
         )
         self.trend_transformer = ViT(
             image_size=[map_height, map_width],
@@ -209,8 +209,6 @@ class STTransformer(nn.Module):
             emb_dropout=drop_prob,
             channels=trend_channels,
             dim_head=trend_dim_head,
-            seq_pool=seq_pool,
-
         )
         combined_token_dim = (close_dim + trend_dim)
         self.inverse_patchify = InversePatchify([map_height, map_width],patch_size,combined_token_dim,post_num_channels)
@@ -225,24 +223,13 @@ class STTransformer(nn.Module):
             # self.Rc_conv_Xc = Rc(input_shape)
             # self.Rc_conv_Xt = Rc(input_shape)
 
-        self.close_ilayer = iLayer(input_shape=input_shape)
-        self.trend_ilayer = iLayer(input_shape=input_shape)
-
-
-        self.mlp_head_close = nn.Sequential(
-            nn.Linear(close_dim, output_dim),
-        )
-        self.mlp_head_trend = nn.Sequential(
-            nn.Linear(trend_dim, output_dim),
-        )
-
     def forward(self, xc, xt, x_ext=None):
         """extract spatial-temporal patterns from historical data and 
         predict the traffic flow at future interval and its time label (which day of a week).
 
         Args:
-            xc (_type_): _description_
-            xt (_type_): _description_
+            xc (_type_): batch_size, nb_flow, length_c, height, width
+            xt (_type_): batch_size, nb_flow, length_t, height, width
             x_ext (_type_, optional): _description_. Defaults to None.
 
         Returns:
@@ -253,7 +240,6 @@ class STTransformer(nn.Module):
         if len(xc.shape) == 5:
             # reshape 5 dimensions to 4 dimensions.
             xc, xt = list(map(lambda x: rearrange(x, "b n l h w -> b (n l) h w"), [xc, xt]))
-        batch_size = xc.shape[0]
         identity_xc, identity_xt = torch.clone(xc), torch.clone(xt)
         # pre-conv Block
         if self.pre_conv:

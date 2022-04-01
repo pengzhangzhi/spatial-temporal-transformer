@@ -44,7 +44,7 @@ class PostConvBlock(nn.Module):
         dilation: int = 1,
         norm_layer: Optional[Callable[..., nn.Module]] = None
     ) -> None:
-        super(BasicBlock, self).__init__()
+        super().__init__()
         if norm_layer is None:
             norm_layer = nn.BatchNorm2d
         if groups != 1 or base_width != 64:
@@ -57,7 +57,7 @@ class PostConvBlock(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.conv2 = conv3x3(planes, planes)
         self.bn2 = norm_layer(planes)
-        self.downsample = downsample
+        self.downsample = conv1x1(inplanes,planes)
         self.stride = stride
 
     def forward(self, x: Tensor) -> Tensor:
@@ -70,8 +70,7 @@ class PostConvBlock(nn.Module):
         out = self.conv2(out)
         out = self.bn2(out)
 
-        if self.downsample is not None:
-            identity = self.downsample(x)
+        identity = self.downsample(x)
 
         out += identity
         out = self.relu(out)
@@ -130,8 +129,6 @@ class BasicBlock(nn.Module):
 
 
 if __name__ == '__main__':
-
-
-
-    pass
+    a = PostConvBlock(2,3)
+    print(a)
 
