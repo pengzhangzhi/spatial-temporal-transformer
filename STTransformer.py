@@ -159,7 +159,7 @@ class STTransformer(nn.Module):
                  shortcut=True,
                  conv_channels=64,
                  drop_prob=0.1,
-                 time_class=48,
+                 time_class=48, # num_of_day_of_week(7) + num_of_hour_of_day(24/48)
                  temporal_hidden_dim = 2048,
                  post_num_channels = 10,
                  **kwargs):
@@ -247,7 +247,8 @@ class STTransformer(nn.Module):
 
         Returns:
             st_features: predictions of traffic flow at future interval.
-            time_class: predict time label of the interval.
+            day_of_week: predicted which day of a week.
+            hour_of_day: predicted which hour (half-hour) of a day.
         """             
         if len(xc.shape) == 5:
             # reshape 5 dimensions to 4 dimensions.
@@ -282,8 +283,8 @@ class STTransformer(nn.Module):
         if not self.training:
             st_map = st_map.relu()
         
-        
-        return st_map, time_class
+        day_of_week, hour_of_day = time_class[:,:7],time_class[:,7:]
+        return st_map, day_of_week, hour_of_day
 
 
 def create_model(arg):
