@@ -237,12 +237,18 @@ class STTransformer(nn.Module):
         )
 
     def forward(self, xc, xt, x_ext=None):
-        """
+        """extract spatial-temporal patterns from historical data and 
+        predict the traffic flow at future interval and its time label (which day of a week).
 
-        :param xc: batch size, num_close,map_height,map_width
-        :param xt: batch size, num_week,map_height,map_width
-        :return:
-        """
+        Args:
+            xc (_type_): _description_
+            xt (_type_): _description_
+            x_ext (_type_, optional): _description_. Defaults to None.
+
+        Returns:
+            st_features: predictions of traffic flow at future interval.
+            time_class: predict time label of the interval.
+        """             
         if len(xc.shape) == 5:
             # reshape 5 dimensions to 4 dimensions.
             xc, xt = list(map(lambda x: rearrange(x, "b n l h w -> b (n l) h w"), [xc, xt]))
@@ -257,7 +263,7 @@ class STTransformer(nn.Module):
         trend_out, mean_trend_out = self.trend_transformer(xt)
         
         # temporal prediction task
-        # xc, xt: (Batch_size, Token_Dim)
+        # xc, xt: (Batch_size, token_dim)
         temporal_embedding = torch.cat([mean_close_out, mean_trend_out], dim=-1)
         time_class = self.temporal_mlp(temporal_embedding)
         
@@ -268,34 +274,16 @@ class STTransformer(nn.Module):
         st_map = st_map * time_attention # (b, n_channels, map_height,map_width)
         
         st_map = self.post_conv_block(st_map) # (b, n_flow, map_height,map_width)
-        
-        
-        
-        identity_close_out, identity_trend_out = close_out, trend_out
-        close_out, trend_out = self.mlp_head_close(close_out), self.mlp_head_trend(trend_out)
-
-        # relu + linear
-
-        close_out = close_out.reshape(batch_size, self.nb_flow, self.map_height, self.map_width)
-        trend_out = trend_out.reshape(batch_size, self.nb_flow, self.map_height, self.map_width)
-
-        close_out = self.close_ilayer(close_out)
-        trend_out = self.trend_ilayer(trend_out)
-        out = close_out + trend_out
 
         if self.shortcut:
             shortcut_out = self.Rc_Xc(identity_xc) + self.Rc_Xt(identity_xt)
-
-            out += shortcut_out
+            st_map += shortcut_out
 
         if not self.training:
-            out = out.relu()
-
-
+            st_map = st_map.relu()
         
         
-        out = (out, time_class)
-        return out
+        return st_map, time_class
 
 
 def create_model(arg):
