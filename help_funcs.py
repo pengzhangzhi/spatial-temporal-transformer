@@ -1,4 +1,4 @@
-'''=================================================
+"""=================================================
 
 @Project -> File：ST-3DNet-main->help_funcs
 
@@ -11,7 +11,7 @@
 @author:Pengzhangzhi
 
 @Desc：
-=================================================='''
+=================================================="""
 import datetime
 import math
 import os
@@ -31,6 +31,15 @@ import numpy as np
 from arg_convertor import json2dict, arg_class2json
 
 
+def get_error_performance(res):
+    mse = res["mse"]["real"]
+    rmse = res["rmse"]["real"]
+    mae = res["mae"]["real"]
+    mape = res["mape"]["real"]
+    ape = res["ape"]["real"]
+    return mse, rmse, mae, mape, ape
+
+
 class Logger(object):
     def __init__(self, filename="Default.log"):
         self.terminal = sys.stdout
@@ -45,14 +54,12 @@ class Logger(object):
 
 
 def read_config(config_name="BikeNYC"):
-    """read in hyperparams from config file, return a dict.
-
-    """
+    """read in hyperparams from config file, return a dict."""
     dir = os.getcwd()
-    config_file = os.path.join(dir, 'config', f'{config_name}.json')
+    config_file = os.path.join(dir, "config", f"{config_name}.json")
     print(config_file)
     if not os.path.exists(config_file):
-        raise ValueError(f'config file {config_file} not exists.')
+        raise ValueError(f"config file {config_file} not exists.")
     training_config = json2dict(config_file)
     return training_config
 
@@ -80,6 +87,7 @@ def split_dataset(dataset, split=0.1, batch_size=32, shuffle=True, *args, **kwar
     """
     from torch.utils.data import SubsetRandomSampler, DataLoader
     import numpy as np
+
     total_len = len(dataset)
     split_len = int(total_len * split)
     indices = list(range(total_len))
@@ -89,8 +97,12 @@ def split_dataset(dataset, split=0.1, batch_size=32, shuffle=True, *args, **kwar
     smaller_indices = indices[:split_len]
     larger_sampler = SubsetRandomSampler(larger_indices)
     samll_sampler = SubsetRandomSampler(smaller_indices)
-    larger_loader = DataLoader(dataset, batch_size, sampler=larger_sampler, *args, **kwargs)
-    samll_loader = DataLoader(dataset, batch_size, sampler=samll_sampler, *args, **kwargs)
+    larger_loader = DataLoader(
+        dataset, batch_size, sampler=larger_sampler, *args, **kwargs
+    )
+    samll_loader = DataLoader(
+        dataset, batch_size, sampler=samll_sampler, *args, **kwargs
+    )
     return larger_loader, samll_loader
 
 
@@ -108,17 +120,19 @@ def make_experiment_dir(args):
     dir = os.getcwd()
     if not os.path.exists(os.path.join(dir, "experiment")):  # make experiment directory
         os.mkdir(os.path.join(dir, "experiment"))
-    expdir = os.path.join(dir, "experiment", args.dataset)  # directory of dataset experiment: experiment/TaxiBJ
+    expdir = os.path.join(
+        dir, "experiment", args.dataset
+    )  # directory of dataset experiment: experiment/TaxiBJ
     if os.path.exists(expdir) is False:
         os.mkdir(expdir)  # make dataset experiment
-    time = datetime.datetime.now().strftime('%m-%d, %H-%M')  # experiment name
+    time = datetime.datetime.now().strftime("%m-%d, %H-%M")  # experiment name
     experiment_name = args.experiment_name if args.experiment_name is not None else time
 
     experiment_path = os.path.join(expdir, experiment_name)  # experiment/TaxiBJ/Time
 
     if not os.path.exists(experiment_path):
         os.mkdir(experiment_path)
-    print('experiment_path:', experiment_path)
+    print("experiment_path:", experiment_path)
 
     # save arg to experiment_path
     save_experiment_args(args, experiment_path)
@@ -136,7 +150,11 @@ def save_experiment_args(args, experiment_path):
     arg_class2json(args, target_path)
 
 
-def save_train_history(experiment_path, results, epoch, tb_writer=None):
+def save_train_history(
+    experiment_path,
+    results,
+    epoch,
+):
     """
 
     :param experiment_path: experiment/TaxiBJ/Time
@@ -144,19 +162,25 @@ def save_train_history(experiment_path, results, epoch, tb_writer=None):
     :param epoch: current epoch
     :param tb_writer: tensorbard
     """
-    tags = ["train_loss", "train_rmse", "train_class_loss","train_class_accuracy",
-            "val_loss", "val_rmse","val_class_loss","val_class_accuracy", "learning_rate"]
+    tags = [
+        "train_loss",
+        "train_rmse",
+        "train_day_of_week_accuracy",
+        "train_time_of_day_accuracy",
+        "val_loss",
+        "val_rmse",
+        "val_day_of_week_accuracy",
+        "val_time_of_day_accuracy",
+        "learning_rate",
+    ]
     history = {}
     print(f"[Train Epoch({epoch})]")
     for tag, result in zip(tags, results):
         history.setdefault(tag, []).append(result)
 
         print(f"{tag}: {result:.2f}")
-        if tb_writer:
-            tb_writer.add_scalar(tag, result, epoch)
     print("=" * 20)
     save_history(history, experiment_path)
-
 
 
 def copy_config_file(target_dir, config_name="BikeNYC"):
@@ -170,7 +194,7 @@ def copy_config_file(target_dir, config_name="BikeNYC"):
 
 def load_data(filename):
     # load data
-    f = open(filename, 'rb')
+    f = open(filename, "rb")
     X_train = pickle.load(f)
     Y_train = pickle.load(f)
     X_test = pickle.load(f)
@@ -180,11 +204,11 @@ def load_data(filename):
     timestamp_train = pickle.load(f)
     timestamp_test = pickle.load(f)
 
-    print('X_train:')
+    print("X_train:")
     for i in range(len(X_train)):  # x_train: xc,xt,(xp,x_ext)
         X_train[i] = torch.tensor(X_train[i], dtype=torch.float32)
         print(X_train[i].shape)
-    print('X_test:')
+    print("X_test:")
     for i in range(len(X_test)):  # x_train: xc,xt,(xp,x_ext)
         X_test[i] = torch.tensor(X_test[i], dtype=torch.float32)
         print(X_train[i].shape)
@@ -195,7 +219,16 @@ def load_data(filename):
     Y_train = torch.tensor(Y_train, dtype=torch.float32)
     Y_test = torch.tensor(Y_test, dtype=torch.float32)
 
-    return X_train, Y_train, X_test, Y_test, mmn, external_dim, timestamp_train, timestamp_test
+    return (
+        X_train,
+        Y_train,
+        X_test,
+        Y_test,
+        mmn,
+        external_dim,
+        timestamp_train,
+        timestamp_test,
+    )
 
 
 def save_history(history, experiment_path="./"):
@@ -207,30 +240,39 @@ def save_history(history, experiment_path="./"):
     df.to_csv(path, mode="a+", header=header)
 
 
-def save_test_results(test_results, experiment_path):
-    # TODO: append instead of overide.
-    """
-    save test result.
-    :param test_results: [MSE, y_rmse, y_mae, y_mape, relative_error]
-    :param experiment_path: path for saving experiment result.
-    """
-    test_tags = ["MSE", "RMSE", "MAE", "MAPE", "relative_error"]
-    test_result = {}
-    for tag, result in zip(test_tags, test_results):
-        test_result.setdefault(tag, []).append(result)
-    name = "test_result.csv"
-    df = pd.DataFrame(test_result)
-    path = os.path.join(experiment_path, name)
-    header = not os.path.exists(path)
+def save_dict_to_binary_file(data, path):
+    """save the data to a binary file."""
+    if os.path.exists(path):
+        os.remove(path)
+    with open(path, "wb") as f:
+        pickle.dump(data, f)
 
-    df.to_csv(path, mode="a", header=header)
+
+def save_test_results(test_results, experiment_path):
+    """save all test results to a binary file `test_result.pkl` and save overall test results to error_performance.csv.
+
+    Args:
+        test_results (_type_): _description_
+        experiment_path (_type_): _description_
+    """
+    name = "test_result.pkl"
+    path = os.path.join(experiment_path, name)
+    save_dict_to_binary_file(test_results, path)
+    mse, rmse, mae, mape, ape = get_error_performance(test_results["overall"])
+    error_performance = {"mse": mse, "rmse": rmse, "mae": mae, "mape": mape, "ape": ape}
+    pd.DataFrame(error_performance, index=[0]).to_csv(
+        os.path.join(experiment_path, "error_performance.csv")
+    )
 
 
 def save_results(test_rmse, test_mae, test_mape, experiment_path):
-    """ save test result.
-    """
+    """save test result."""
     name = "test_result.csv"
-    result_dict = {"test_rmse": [test_rmse], "test_mae": [test_mae], "test_mape": [test_mape]}
+    result_dict = {
+        "test_rmse": [test_rmse],
+        "test_mae": [test_mae],
+        "test_mape": [test_mape],
+    }
     df = pd.DataFrame(result_dict)
     path = os.path.join(experiment_path, name)
     df.to_csv(path)
@@ -239,16 +281,16 @@ def save_results(test_rmse, test_mae, test_mape, experiment_path):
 def print_run_time(func):
     def wrapper(*args, **kw):
         local_time = time.time()
-        func(*args, **kw)
+        res = func(*args, **kw)
         duration = (time.time() - local_time) / 60
-        print('run time is %.2f min' % duration)
+        print("run time is %.2f min" % duration)
+        return res
 
     return wrapper
 
 
 def summary(model, input_size, batch_size=-1, device="cuda"):
     def register_hook(module):
-
         def hook(module, input, output):
             class_name = str(module.__class__).split(".")[-1].split("'")[0]
             module_idx = len(summary)
@@ -274,9 +316,9 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
             summary[m_key]["nb_params"] = params
 
         if (
-                not isinstance(module, nn.Sequential)
-                and not isinstance(module, nn.ModuleList)
-                and not (module == model)
+            not isinstance(module, nn.Sequential)
+            and not isinstance(module, nn.ModuleList)
+            and not (module == model)
         ):
             hooks.append(module.register_forward_hook(hook))
 
@@ -336,9 +378,11 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
         print(line_new)
 
     # assume 4 bytes/number (float on cuda).
-    total_input_size = abs(np.prod(input_size) * batch_size * 4. / (1024 ** 2.))
-    total_output_size = abs(2. * total_output * 4. / (1024 ** 2.))  # x2 for gradients
-    total_params_size = abs(total_params.numpy() * 4. / (1024 ** 2.))
+    total_input_size = abs(np.prod(input_size) * batch_size * 4.0 / (1024**2.0))
+    total_output_size = abs(
+        2.0 * total_output * 4.0 / (1024**2.0)
+    )  # x2 for gradients
+    total_params_size = abs(total_params.numpy() * 4.0 / (1024**2.0))
     total_size = total_params_size + total_output_size + total_input_size
 
     print("================================================================")
@@ -354,42 +398,48 @@ def summary(model, input_size, batch_size=-1, device="cuda"):
     # return summary
 
 
-class EarlyStop():
-    """ Apply earlyStop and save_checkpoint during the training process.
+class EarlyStop:
+    """Apply earlyStop and save_checkpoint during the training process.
     usage:
 
 
     """
 
-    def __init__(self, patience: int = 50, mode: str = "min", delta: float = 0.,
-                 path: str = "best-Model.pth", verbose: bool = True):
+    def __init__(
+        self,
+        patience: int = 50,
+        mode: str = "min",
+        delta: float = 0.0,
+        path: str = "best-Model.pth",
+        verbose: bool = True,
+    ):
         """
 
-            Args:
-            patience(int): How long to wait after last model improved.
-            mode(str): One of { "min", "max"}.
-                        In min mode, training will stop when the quantity monitored has stopped decreasing;
-                        in "max" mode it will stop when the quantity monitored has stopped increasing;
-                         in "auto" mode, the direction is automatically inferred from the name of the monitored quantity.
+        Args:
+        patience(int): How long to wait after last model improved.
+        mode(str): One of { "min", "max"}.
+                    In min mode, training will stop when the quantity monitored has stopped decreasing;
+                    in "max" mode it will stop when the quantity monitored has stopped increasing;
+                     in "auto" mode, the direction is automatically inferred from the name of the monitored quantity.
 
-            delta(float): Minimum change in the monitored quantity.
-            path(str): Path to save the best model.
-            verbose(bool): if True print out messages each time.
-            example:
-            >>> earlyStop = EarlyStop(verbose=True)  # intialize earlyStop class
-            >>> loss = 50000
-            >>> model = torch.nn.Sequential(torch.nn.Linear(10, 10))
-            >>> for i in range(1000):
-            >>>     if i < 100:
-            >>>         loss -= 5
-            >>>     print(f"loss:{loss}")
-            >>>     if earlyStop(loss, model):  # add earlyStop,
-            >>>         break
+        delta(float): Minimum change in the monitored quantity.
+        path(str): Path to save the best model.
+        verbose(bool): if True print out messages each time.
+        example:
+        >>> earlyStop = EarlyStop(verbose=True)  # intialize earlyStop class
+        >>> loss = 50000
+        >>> model = torch.nn.Sequential(torch.nn.Linear(10, 10))
+        >>> for i in range(1000):
+        >>>     if i < 100:
+        >>>         loss -= 5
+        >>>     print(f"loss:{loss}")
+        >>>     if earlyStop(loss, model):  # add earlyStop,
+        >>>         break
 
         """
 
         self.mode = mode.lower()
-        assert self.mode in ["min", "max"], 'mode must be one of [min, max]'
+        assert self.mode in ["min", "max"], "mode must be one of [min, max]"
         self.best_score = math.inf if self.mode == "min" else -math.inf
         self.patience = patience
         self.delta = delta
@@ -418,8 +468,10 @@ class EarlyStop():
 
         if self._achieve_better(record):
             if self.vobose:
-                message = f"Metric has imporved from " \
-                          f"{self.best_score:.2f} --> {record:.2f}"
+                message = (
+                    f"Metric has imporved from "
+                    f"{self.best_score:.2f} --> {record:.2f}"
+                )
                 self.messages.append(message)
                 print(message)
 
@@ -439,7 +491,7 @@ class EarlyStop():
         return self.stop
 
     def save_checkpoint(self, model):
-        """  save pytorch model to the specified file path."""
+        """save pytorch model to the specified file path."""
         torch.save(model.state_dict(), self.path)
         if self.vobose:
             message = f"Best Model Saved in path: {self.path}!"
@@ -447,7 +499,7 @@ class EarlyStop():
             print(message)
 
     def _achieve_better(self, record: float) -> bool:
-        ''' decide whether the record is better than the existing best score.'''
+        """decide whether the record is better than the existing best score."""
         if self.mode == "min":
             return record < self.best_score - self.delta
 
