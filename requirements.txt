@@ -8,5 +8,5 @@ einops == 0.3.0
 
 # C:\Users\������computational AI\Desktop\base transformer\vit.py: 19
 vit_pytorch == 0.20.1
-
+h5py==2.9.0
 tensorboard == 2.0.2
