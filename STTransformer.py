@@ -197,6 +197,7 @@ class STTransformer(nn.Module):
         time_class=48,  # num_of_day_of_week(7) + num_of_hour_of_day(24/48)
         temporal_hidden_dim=2048,
         post_num_channels=10,
+        ext_dim=24,
         **kwargs
     ):
 
@@ -256,8 +257,15 @@ class STTransformer(nn.Module):
         )
         self.temporal_attention = TemporalAttention(time_class, [map_height, map_width])
         self.post_conv_block = PostConvBlock(
-            inplanes=post_num_channels, planes=self.nb_flow
-        )
+            inplanes=post_num_channels+1, planes=self.nb_flow
+        ) # the inplanes is the number of channels of reshaped st_features + an one-channel external features
+        self.ext_dim = ext_dim
+        
+        if ext_dim:
+            self.ext_module = TemporalMLP(
+                ext_dim, 10, map_height*map_width
+            )
+        
         input_shape = (nb_flow, map_height, map_width)
         self.shortcut = shortcut
         if shortcut:
@@ -310,8 +318,11 @@ class STTransformer(nn.Module):
         )  # (b, 1, map_height,map_width)
 
         st_map = st_map * time_attention  # (b, n_channels, map_height,map_width)
-
-        st_map = self.post_conv_block(st_map)  # (b, n_flow, map_height,map_width)
+        if x_ext is not None and self.ext_dim != 0:
+            ext_features = self.ext_module(x_ext)
+            ext_features = rearrange(ext_features,"b (h w) -> b 1 h w",h=self.map_height,w=self.map_width)
+            st_map = torch.cat([st_map,ext_features],dim=1)
+        st_map = self.post_conv_block(st_map)  # output: (b, n_flow, map_height,map_width)
 
         if self.shortcut:
             shortcut_out = self.Rc_Xc(identity_xc) + self.Rc_Xt(identity_xt)
@@ -367,10 +378,12 @@ if __name__ == "__main__":
         time_class=7 + 48,  # num_of_day_of_week(7) + num_of_hour_of_day(24/48)
         temporal_hidden_dim=2048,
         post_num_channels=10,
+        ext_dim = 24
     )
     xc = torch.randn((batch_size, 2, len_c, height, width))
     xt = torch.randn((batch_size, 2, len_t, height, width))
-    flow_prediction, day_of_week_label, time_of_day_label = sttransformer(xc, xt)
+    x_ext = torch.randn((batch_size,24))
+    flow_prediction, day_of_week_label, time_of_day_label = sttransformer(xc, xt,x_ext)
     print(flow_prediction.shape)
     print(day_of_week_label.shape)
     print(time_of_day_label.shape)

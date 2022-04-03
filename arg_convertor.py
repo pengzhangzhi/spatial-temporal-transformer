@@ -233,6 +233,7 @@ def convert_TaxiNYC(
         time_class = 7 + T
         alpha = 1.0
         beta = 1.0
+        ext_dim = 24-8
 
     arg_class2json(arg, os.path.join("config", f"{config_name}.json"))
 

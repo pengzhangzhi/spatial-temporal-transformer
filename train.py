@@ -33,8 +33,7 @@ from help_funcs import (
     EarlyStop,
 )
 from read_data import load
-from utils import make_pretrain_path, train_one_epoch, evaluate, test
-
+from utils import convert_timestr_to_day_of_week, fix_seed, make_pretrain_path, train_one_epoch, evaluate, test
 
 class Mydataset(torch.utils.data.Dataset):
     def __init__(self, x, y, timestamp, args, **kwargs):
@@ -43,7 +42,8 @@ class Mydataset(torch.utils.data.Dataset):
         self.length = len(y)
         self.x = x
         self.y = y
-        self.day_of_week = list(map(lambda x: int(x[-4:-2]) % 7, timestamp))
+        
+        self.day_of_week = list(map(convert_timestr_to_day_of_week, timestamp))
         self.time_of_day = list(map(lambda x: (x.astype(int)) % 100, timestamp))
         if min(self.time_of_day) == 1:
             self.time_of_day = list(map(lambda x: x - 1, self.time_of_day))
@@ -140,7 +140,7 @@ def train(args, model=None, experiment_path=None):
     model = load_model(args, model)
     optimizer, scheduler = get_optim(model, args)
     model_path = os.path.join(experiment_path, "best_model.pt")
-    early_stop = EarlyStop(patience=int(60), path=model_path)
+    early_stop = EarlyStop(patience=int(40), path=model_path)
     train_loop(
         args.epochs,
         args,
@@ -169,6 +169,8 @@ def load_model(args, model):
 def pretrain(
     args,
 ):
+    if not args.pretrain_times:
+        return
     print("pretraining model.")
     device = args.device
     pretrain_dir, experiment_path = make_pretrain_path(args)
@@ -180,24 +182,24 @@ def pretrain(
     if os.path.exists(model_checkpoint_path):
         print(f"load checkpoint: {model_checkpoint_path} to pretrain.")
         model.load_state_dict(torch.load(model_checkpoint_path))  # load best model
-    if args.pretrain_times:
-        optimizer, scheduler = get_optim(model, args)
-        early_stop = EarlyStop(
-            patience=int(args.epochs * 0.5), path=model_checkpoint_path
-        )
-        train_loader, val_loader, test_loader = get_loaders(args, pretrain=True)
-        train_loop(
-            args.pretrain_epochs,
-            args,
-            device,
-            pretrain_dir,
-            model,
-            optimizer,
-            scheduler,
-            early_stop,
-            train_loader,
-            val_loader,
-        )
+    
+    optimizer, scheduler = get_optim(model, args)
+    early_stop = EarlyStop(
+        patience=50, path=model_checkpoint_path
+    )
+    train_loader, val_loader, test_loader = get_loaders(args, pretrain=True)
+    train_loop(
+        args.pretrain_epochs,
+        args,
+        device,
+        pretrain_dir,
+        model,
+        optimizer,
+        scheduler,
+        early_stop,
+        train_loader,
+        val_loader,
+    )
     # test
     if os.path.exists(model_checkpoint_path):
         model.load_state_dict(torch.load(model_checkpoint_path))  # load best model
@@ -298,7 +300,7 @@ if __name__ == "__main__":
     args.pretrain_epochs = (
         opt.pretrain_epochs if opt.pretrain_epochs else args.pretrain_epochs
     )
-
+    fix_seed(seed=666)
     if opt.noPretrain:
         print("No pretrain, directly training.")
         train(args)

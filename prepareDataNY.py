@@ -263,7 +263,7 @@ def load_meteorol_taxiNYC(timeslots, datapath):
     # concatenate all these attributes
     merge_data = np.hstack([WR, WS[:, None], TE[:, None]])
 
-    # print('meger shape:', merge_data.shape)
+    # print('meteroral data merged shape:', merge_data.shape)
     return merge_data
 
 
@@ -710,11 +710,11 @@ def load_data_taxiNYC(
     # load meta feature
     meta_feature = []
     if meta_data:
-        time_feature = timestamp2vec(timestamps_Y)
+        time_feature = timestamp2vec(timestamps_Y) # first 8 element, day of a week, weekday or weekend.
         meta_feature.append(time_feature)
         if holiday_data:
             # load holiday
-            holiday_feature = load_holiday_taxiNYC(timestamps_Y, datapath)
+            holiday_feature = load_holiday_taxiNYC(timestamps_Y, datapath) # 1 element, is or not a holiday.
             meta_feature.append(holiday_feature)
         if meteorol_data:
             # load meteorol data

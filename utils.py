@@ -1,4 +1,5 @@
 import copy
+import random
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -9,7 +10,9 @@ import h5py
 import time
 import pickle
 import sys
-
+import time
+from datetime import datetime
+from time import mktime
 import torch
 from einops import rearrange
 from tqdm import tqdm
@@ -58,21 +61,12 @@ def pretrain_shuffle(xc, xt, x_ext, y):
 
 
 def fix_seed(seed=666):
-    # PyTorch
-    import torch
-
     torch.manual_seed(seed)
-
-    # python
-    import random
-
-    random.seed(seed)
-
-    # Third part libraries
-    import numpy as np
-
+    torch.cuda.manual_seed_all(seed)
     np.random.seed(seed)
-
+    random.seed(seed)
+    # reference: https://pytorch.org/docs/stable/notes/randomness.html#cuda-convolution-benchmarking
+    torch.backends.cudnn.deterministic = True
 
 def train_one_epoch(model, optimizer, data_loader, device, epoch, args):
     """train the given model with optimizer on data_loader at eepoch.
@@ -349,6 +343,8 @@ def init_metrics():
 def load_data(device, data):
     for i in range(0, len(data)):
         data[i] = data[i].to(device)
+    if len(data[2].T) > 16:
+        data[2] = data[2][:,8:] # filter out the first 8 dim, which represents meta data. the leftover is meterogical data.
     return data
 
 
@@ -430,7 +426,7 @@ def evaluate(model, data_loader, device, epoch):
                 num_correct_time_of_day / len(time_of_day),
             )
         )
-    MSE, RMSE = cal_batch_metrics(
+    accu_correct_day_of_week, accu_correct_time_of_day, MSE, RMSE = cal_batch_metrics(
         accu_loss,
         accu_rmse,
         accu_correct_day_of_week,
@@ -598,7 +594,7 @@ def group_test_day_of_week(model, data, device, args):
     day_idexs = [day_of_week == i for i in range(7)]  # get the idx of each day of week.
     peformance_res = {}
     week_name = [
-        "Mondy",
+        "Monday",
         "Tuesday",
         "Wednesday",
         "Thursday",
@@ -644,9 +640,9 @@ def group_by(model, data, device, group_indexs, group_names):
         for i in range(len(data_list)):
             data_list[i] = data_list[i][group_idx]
         xc, xt, x_ext, y, day_of_week, time_of_day = load_data(device, data_list)
-        assert (day_of_week.cpu().sum()).item() == (
-            day_of_week[0] * len(day_of_week)
-        ).item(), "the test data should be group to of the same day of week."
+        # assert (day_of_week.cpu().sum()).item() == (
+        #     day_of_week[0] * len(day_of_week)
+        # ).item(), "the test data should be group to of the same day of week."
         pred, pred_day_of_week, pred_time_of_day = model(xc, xt, x_ext)
 
         flow_prediction_performance = compute_metrics(y, pred)
@@ -657,7 +653,7 @@ def group_by(model, data, device, group_indexs, group_names):
     return
 
 
-def day_range(T):
+def get_day_range(T):
     """split the number of intervals of a day into day and night.
         We regard intervals at [7,20) as day and intervals at [20,7) as night.
         i.e., the time interval from morning 7 AM to 7 PM as day, and the time interval from 8 PM to 6 AM as night.
@@ -677,7 +673,7 @@ def day_range(T):
 
 def group_test_day_and_night(model, data, device, args):
     *_, day_of_week, time_of_day = load_data(device, data)
-    day_range = day_range(args.T)
+    day_range = get_day_range(args.T)
     day_index = cal_interval_in_range(time_of_day, day_range)
     night_index = ~day_index
     group_indexs = [day_index, night_index]
@@ -1079,6 +1075,15 @@ class STMatrix(object):
         )
         return XC, XP, XT, Y, timestamps_Y
 
+
+def convert_timestr_to_day_of_week(time_byte):
+    """convert a string of time to a day of week.
+    Args:
+        time_byte: a time.
+    Returns:
+        a day of week.
+    """
+    return time.strptime(str(time_byte[:8], encoding="utf-8"), "%Y%m%d").tm_wday
 
 def timestamp2vec(timestamps):
     # tm_wday range [0, 6], Monday is 0
